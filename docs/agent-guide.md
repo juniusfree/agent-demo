@@ -88,7 +88,8 @@ Nothing installs or downloads Kokoro. No cloud speech fallback exists.
    processes you started. Keep private auth state and raw recordings out of Git.
 
 For a real app, obtain its URL, the feature to demonstrate, and authorized
-throwaway account/data. Follow the [agent contract](#agent-contract). Camera
+throwaway account/data. If sign-in is required, use [Authentication setup](#authentication-setup)
+before capture; do not attach to the user's daily Chrome profile. Follow the [agent contract](#agent-contract). Camera
 movement is opt-in through `:camera`; cuts are explicit agent-authored edits.
 Neither requires new capture helpers.
 
@@ -133,6 +134,62 @@ completion/filtering, persistence after reload, storage failure, and corrupt
 saved data. It needs installed Chrome but does not need Kokoro. Captures use
 an isolated context, so each demo starts with an empty browser store.
 
+## Authentication setup
+
+Use Agent Demo's `auth` command instead of remote debugging on a signed-in
+personal browser. It opens a separate, visible Chrome instance with a fresh
+context. It does not record video, trace, take screenshots, run scene actions,
+or reuse an existing `:storage-state`. Use a dedicated demo account.
+
+1. Put the real app's URL in the first `:goto` of your local project.
+2. Run this command in an **interactive terminal** the user can access:
+
+   ```sh
+   clojure -M:run auth work/demo.local.edn .auth/demo-v1
+   ```
+
+3. The user signs in manually in the new browser, including SSO/MFA, then
+   types `verify` in the terminal. Do not put passwords or MFA codes into
+   EDN, chat, or an agent tool call.
+4. Agent Demo closes that context and opens the original app URL in a fresh
+   context with the saved state held in memory. The user checks that the
+   intended account is still signed in **without signing in again**, then
+   types `save`. If the login page returns or the wrong account appears,
+   cancel instead.
+5. Only then does Agent Demo write `.auth/demo-v1/storage-state.json`.
+   Add its path to the original local project:
+
+   ```clojure
+   :browser {:storage-state ".auth/demo-v1/storage-state.json"}
+   ```
+
+6. Run capture with that project. Keep the exact app origin, including
+   hostname and port; `localhost` and `127.0.0.1` are different origins.
+   Review the result before sharing.
+
+The CLI also honors `:browser :executable` during setup. All paths are
+relative to the command's working directory unless absolute. Each setup
+requires a new output directory; expired sessions require setup again with
+a new directory and an updated project path. Nothing overwrites old sessions.
+
+**For agents:** keep the interactive command running while the user signs in.
+Explain the two confirmation steps. Do not send `verify` or `save` without
+the user's confirmation. EOF or any other response cancels; a noninteractive
+shell with closed stdin cannot complete setup. Never ask the user to enable
+remote debugging on their personal profile.
+
+The state includes cookies, local storage, and IndexedDB, potentially for an
+identity provider as well as the app. Treat it as a credential. New directories
+use 0700 and the state file uses 0600 on POSIX; check inherited ACLs elsewhere.
+Both `.auth/` and `storage-state*.json` are ignored by Git.
+
+Session storage and device-bound credentials are not transferred. The fresh
+context check exposes many such failures, but does not guarantee that a
+session will remain valid in a later headless capture. If reuse fails, stop
+and use an app-supported demo/dev login rather than copying a personal browser
+profile or putting login actions into the recording. Setup is not read-only:
+signing in can create server sessions and audit events.
+
 ## Agent contract
 
 1. Use an authorized, disposable application fixture.
@@ -160,6 +217,7 @@ instructions, cuts, and presentation timing.
 | --- | --- |
 | Browser or recording helper missing | Verify Chrome or the configured executable; install only the documented recording helper after download approval. |
 | Kokoro unavailable | Check the loopback endpoint or request the actual foreground launcher. Do not invent a command or substitute cloud speech. |
+| Isolated browser shows sign-in | Run `auth` in an interactive terminal, verify the transferred session, and set `:browser :storage-state`. Use a new auth directory for expired sessions. |
 | Selector fails or times out | Inspect the real UI and use a unique selector with an explicit completion wait. Recapture after changing actions. |
 | Narration exceeds footage | Shorten the narration, or recapture with a final stable checkpoint. |
 | Caption exceeds two lines | Rewrite the sentence more concisely; do not split speech arbitrarily mid-sentence. |
@@ -186,7 +244,7 @@ across CLI processes.
 ## Files and privacy
 
 Capture directory:
-- `project.edn`: original project configuration.
+- `project.edn`: project copy without browser configuration or the Kokoro launch command.
 - `capture.edn`: absolute source path, encoded scene bounds, actions and events.
 - `raw/*.webm`: original private recording, including synchronization/setup.
 
@@ -201,9 +259,34 @@ bounds drive video cuts. Capture manifests use absolute paths: update
 `:source` if deliberately relocating footage.
 
 Keep raw footage, authentication state, logs, and configuration private.
+New capture/render directories use owner-only permissions (0700) on POSIX
+systems; other platforms inherit filesystem ACLs, which you must check.
+Existing directories are not retroactively secured by the CLI.
+
+Saved project copies omit `:browser` and `:kokoro :command`; reapply those
+settings from private configuration if you need to capture again or launch
+speech. Actions, narration, URLs, selectors, and absolute source/audio paths
+remain in manifests because rendering and capture validation use them.
+**These manifests are not sanitized exports.** Unknown project metadata may
+also remain: do not add secrets to project files.
+
+The CLI does not print raw exception details or subprocess output on failure.
+It rejects navigation URLs with embedded user/password credentials and
+refuses to fill HTML password inputs during capture. These guards do not
+detect secrets in query strings, ordinary text inputs, or page content.
+Authenticate outside the recording using a private storage-state file.
+Browser downloads are disabled.
+
 The tool does not upload anything, redact recordings, or package artifacts
 for sharing. EDN cannot execute code through the reader, but a configured
-Kokoro command **is executable configuration**: use trusted project files.
+Kokoro command and browser executable **are executable configuration**.
+Use trusted project and capture files: this CLI is not a sandbox.
+
+Only publish a reviewed final MP4. Check visible names, email addresses,
+notifications, account menus, and captions. Keep custom configuration in
+`work/` or a `*.local.edn` file, and keep authentication outside the repository.
+Ignore rules are a backstop, not a guarantee: Git can still force-add files.
+See [Security and privacy](../SECURITY.md) for boundaries and audit limits.
 
 ## Publishing a demo on GitHub
 
@@ -236,6 +319,7 @@ See [GitHub's attachment instructions](https://docs.github.com/en/github-cli/git
 | --- | --- |
 | `core` | Pure validation, cue segmentation, cut and narration timeline planning |
 | `camera` | Pure camera validation, anchor remapping, persistent state, FFmpeg expressions |
+| `auth` | Manual login, fresh-context verification, and private state export |
 | `capture` | Playwright browser adapter and encoded boundary extraction |
 | `speech` | Local HTTP and owned-process lifecycle |
 | `render` | Caption rasterization and FFmpeg composition |

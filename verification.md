@@ -151,6 +151,39 @@
   checks both the completed state and the absence of an upper-left overlay.
 - Final MP4 decoding and a sampled hold frame passed inspection.
 
+## Security and privacy cleanup
+
+- Reviewed tracked files and all 42 historical file blobs present before
+  this change. No common credential, email, or personal home-path signatures
+  matched text content. This was a targeted pattern scan, not an exhaustive
+  secret/dependency audit; see `SECURITY.md`.
+- Unit tests: 200 assertions; real-browser tests: 28 assertions, including
+  refusal to fill a password input. All passed.
+- Confirmed that the real CLI rejects a credential-bearing URL without
+  printing its credential sentinel. Confirmed owner-only POSIX permissions
+  for new outputs; tightened the existing ignored `work/` directory to 0700.
+- Zoom regression passed. Fresh capture and two renders passed at
+  `work/privacy-acceptance-v2/`, including media decoding, unchanged source,
+  hold behavior, and absent pause labels.
+- Kokoro was unavailable for the initial live smoke attempt. The successful
+  run reused exact saved sentence audio; its manifest records that limitation.
+- Git author metadata and previously published attachments were not rewritten.
+  No credentials were identified for rotation.
+
+## Manual authentication setup
+
+- `auth project.edn new-auth-directory` opens a separate visible browser,
+  requests manual login, verifies transferred state in a fresh context, and
+  saves only after a second explicit confirmation. Neither context records.
+- 206 unit assertions and 43 real-browser assertions pass. Auth tests cover
+  cookies, local storage, IndexedDB, absent session-storage transfer, refreshed
+  state export, cancellation/EOF, no overwrite, no video, and POSIX file mode 0600.
+- Browser automation tests run headless against a local fixture with synthetic
+  state. Actual manual login, SSO/MFA, and device-bound authentication against
+  a real service still require user verification.
+- No personal browser debugging connection is used. The command does not
+  automatically decide whether the user is authenticated.
+
 ## Limits of this evidence
 
 - Speech was generated and measured, but not listened to during implementation.

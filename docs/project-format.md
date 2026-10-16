@@ -28,6 +28,10 @@ and verification. Run commands from the repository root.
 ```
 
 Omit `:browser` to use installed Chrome with a fresh isolated context.
+For authenticated demos, run `clojure -M:run auth project.edn .auth/demo-v1`
+and set `:browser :storage-state` to the resulting private JSON file.
+See [Authentication setup](agent-guide.md#authentication-setup) for the manual
+login and fresh-context verification steps. Authentication is never recorded.
 The sample Kokoro command is illustrative: configure the actual foreground
 launcher for your installation. Do not configure a daemonizing launcher.
 

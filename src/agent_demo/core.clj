@@ -1,9 +1,9 @@
 (ns agent-demo.core
-  (:require [clojure.string :as str] [agent-demo.camera :as camera])
-  (:import [java.text BreakIterator] [java.util Locale]))
+  (:require [clojure.string :as str] [agent-demo.camera :as camera] [agent-demo.privacy :as privacy])
+  (:import [java.net URI] [java.text BreakIterator] [java.util Locale]))
 
 (defn require! [condition message data]
-  (when-not condition (throw (ex-info message data))))
+  (when-not condition (throw (privacy/error message data))))
 
 (defn finite-number? [x]
   (and (number? x) (Double/isFinite (double x))))
@@ -14,6 +14,14 @@
   (and (integer? width) (integer? height)
        (even? width) (even? height)
        (<= 640 width 2560) (<= 400 height 1600)))
+
+(defn browser-url? [value]
+  (try
+    (and (string? value)
+         (let [uri (URI/create value)]
+           (and (#{"http" "https"} (.getScheme uri))
+                (some? (.getHost uri)) (nil? (.getUserInfo uri)))))
+    (catch IllegalArgumentException _ false)))
 
 (def operations #{:goto :click :fill :hover :wait-visible :wait-text :checkpoint})
 (declare scene-cuts)
@@ -33,15 +41,15 @@
     (scene-cuts s Double/POSITIVE_INFINITY)
     (require! (vector? (:actions s)) "Scene :actions must be a vector" {:scene (:id s)})
     (doseq [a (:actions s)]
-      (require! (operations (:op a)) "Unsupported browser operation" {:action a})
+      (require! (operations (:op a)) "Unsupported browser operation" {})
       (case (:op a)
-        :goto (require! (and (string? (:url a)) (re-find #"^https?://" (:url a)))
-                         "Goto requires an HTTP(S) :url" {:action a})
+        :goto (require! (browser-url? (:url a))
+                         "Goto requires an HTTP(S) URL with a host and no embedded credentials" {})
         :checkpoint nil
         (require! (and (string? (:selector a)) (not (str/blank? (:selector a))))
-                  "Action requires :selector" {:action a}))
+                  "Action requires :selector" {}))
       (when (#{:fill :wait-text} (:op a))
-        (require! (string? (:text a)) "Action requires :text" {:action a}))))
+        (require! (string? (:text a)) "Action requires :text" {}))))
   (camera/validate p))
 
 (defn cues [text]

@@ -1,5 +1,5 @@
 (ns agent-demo.capture
-  (:require [agent-demo.core :as core] [agent-demo.io :as dio] [clojure.java.io :as io])
+  (:require [agent-demo.core :as core] [agent-demo.io :as dio] [clojure.java.io :as io] [agent-demo.privacy :as privacy])
   (:import [com.microsoft.playwright Playwright Playwright$CreateOptions BrowserType$LaunchOptions Browser$NewContextOptions
             Locator$WaitForOptions]
            [com.microsoft.playwright.options WaitForSelectorState]
@@ -43,7 +43,10 @@
       (move! page position destination events base)
       (case (:op action)
         :hover (.hover loc)
-        :fill (.fill loc (:text action))
+        :fill (do
+                (core/require! (not (.evaluate loc "e => e.tagName === 'INPUT' && e.type === 'password'"))
+                               "Password fields cannot be filled during capture; authenticate outside the recording" {})
+                (.fill loc (:text action)))
         :click (do (.evaluate page "p => window.__demoPulse(p.x,p.y)" {"x" (:x destination) "y" (:y destination)})
                    (.click loc)))))
   (swap! events conj {:type (:op action) :selector (:selector action) :at (- (now) base)}))
@@ -91,6 +94,7 @@
                 (.setChannel opts "chrome"))]
         (with-open [browser (.launch (.chromium pw) opts)]
           (let [options (doto (Browser$NewContextOptions.)
+                          (.setAcceptDownloads false)
                           (.setViewportSize width (+ height 16))
                           (.setRecordVideoSize width (+ height 16))
                           (.setRecordVideoDir (path (str out "/raw"))))
@@ -130,6 +134,6 @@
                                           (range) scenes)
                             :events events :event-clock :monotonic-relative-to-first-marker}]
                   (dio/write-edn! (str out "/capture.edn") (assoc data :events @events))
-                  (dio/write-edn! (str out "/project.edn") project)
+                  (dio/write-edn! (str out "/project.edn") (privacy/project-copy project))
                   (assoc data :events @events)))
               (finally (.close context)))))))))

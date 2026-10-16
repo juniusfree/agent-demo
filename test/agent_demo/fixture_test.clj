@@ -1,7 +1,11 @@
 (ns agent-demo.fixture-test
   "Real-browser checks for the bundled demo app; no Kokoro required."
   (:require [clojure.test :refer [deftest is run-tests]]
-            [agent-demo.main :as main])
+            [agent-demo.main :as main]
+            [agent-demo.capture :as capture]
+            [agent-demo.auth :as auth]
+            [agent-demo.core :as core]
+            [clojure.java.io :as io])
   (:import [com.microsoft.playwright Playwright Playwright$CreateOptions BrowserType$LaunchOptions]))
 
 (deftest launch-workflow
@@ -70,8 +74,66 @@
           (.reload page)
           (is (= "Untitled project" (.inputValue (loc "#name"))))
           (click "#tasks-tab")
-          (is (= 0 (.count (loc "#task-list li"))))))
+          (is (= 0 (.count (loc "#task-list li"))))
+          ;; Authentication belongs outside the recorded action sequence.
+          (.setContent page "<input id='login-password' type='password'>")
+          (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Password fields"
+                (capture/action! page {:op :fill :selector "#login-password" :text "test-only"}
+                                 (atom {:x 0 :y 0}) (atom []) (capture/now))))
+          (is (= "" (.inputValue (loc "#login-password"))))))
       (finally (.stop server 0)))))
+
+(deftest manual-auth-roundtrip
+  (let [server (main/fixture! 0)
+        root (.toFile (java.nio.file.Files/createTempDirectory
+                       "agent-demo-auth-" (make-array java.nio.file.attribute.FileAttribute 0)))
+        project {:version 1
+                 ;; Setup must ignore any old session and begin isolated.
+                 :browser {:storage-state "/nonexistent/old-session.json"}
+                 :scenes [{:id "demo" :narration "A demo."
+                           :actions [{:op :goto :url (str "http://127.0.0.1:" (.getPort (.getAddress server)))}]}]}
+        phases (atom [])]
+    (try
+      (let [out (str root "/session")
+            state (auth/auth! project out
+                    {:headless? true
+                     :confirm-fn
+                     (fn [phase page]
+                       (swap! phases conj phase)
+                       (is (nil? (.video page)) "Login and verification are never recorded")
+                       (case phase
+                         :login
+                         (do
+                           (is (nil? (.evaluate page "localStorage.getItem('demo-account')")))
+                           (.evaluate page "() => { document.cookie='demo_auth=fixture; path=/'; localStorage.setItem('demo-account','fixture'); sessionStorage.setItem('session-only','not-transferable'); }")
+                           (.evaluate page "async () => { await new Promise((resolve,reject) => { const r=indexedDB.open('demo-auth',1); r.onupgradeneeded=()=>r.result.createObjectStore('session'); r.onerror=()=>reject(r.error); r.onsuccess=()=>{ const db=r.result; const t=db.transaction('session','readwrite'); t.objectStore('session').put('fixture','token'); t.oncomplete=()=>{db.close();resolve();}; t.onerror=()=>reject(t.error); }; }); }"))
+                         :verify
+                         (do
+                           (is (= "fixture" (.evaluate page "localStorage.getItem('demo-account')")))
+                           (is (.contains (.evaluate page "document.cookie") "demo_auth=fixture"))
+                           (is (nil? (.evaluate page "sessionStorage.getItem('session-only')")))
+                           (is (= "fixture" (.evaluate page "async () => await new Promise((resolve,reject) => { const r=indexedDB.open('demo-auth',1); r.onerror=()=>reject(r.error); r.onsuccess=()=>{const db=r.result; const q=db.transaction('session').objectStore('session').get('token'); q.onsuccess=()=>{db.close();resolve(q.result);}; q.onerror=()=>reject(q.error);}; })")))
+                           (.evaluate page "localStorage.setItem('demo-account','fixture-refreshed')"))))})]
+        (is (= [:login :verify] @phases))
+        (is (.contains (slurp state) "fixture-refreshed"))
+        (is (= #{"storage-state.json"} (set (.list (io/file out)))))
+        (when (contains? (set (.supportedFileAttributeViews (java.nio.file.FileSystems/getDefault))) "posix")
+          (is (= (java.nio.file.attribute.PosixFilePermissions/fromString "rw-------")
+                 (java.nio.file.Files/getPosixFilePermissions (capture/path state)
+                   (make-array java.nio.file.LinkOption 0)))))
+        (is (thrown? Exception (auth/save-state! state "must not replace")))
+        (is (.contains (slurp state) "fixture-refreshed")))
+      (let [out (str root "/cancelled")]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"cancelled"
+              (auth/auth! project out
+                {:headless? true
+                 :confirm-fn (fn [phase _]
+                               (when (= phase :verify)
+                                 (core/require! false "Setup cancelled" {})))})))
+        (is (empty? (.list (io/file out)))))
+      (finally
+        (.stop server 0)
+        (doseq [file (reverse (file-seq root))] (io/delete-file file))))))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests 'agent-demo.fixture-test)]

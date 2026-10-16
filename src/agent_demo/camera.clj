@@ -1,9 +1,10 @@
 (ns agent-demo.camera
-  "Pure, persistent camera state. Source-scene anchors map to edited time.")
+  "Pure, persistent camera state. Source-scene anchors map to edited time."
+  (:require [agent-demo.privacy :as privacy]))
 
 (def full-view {:zoom 1.0 :x 0.5 :y 0.5})
 (defn- ensure! [ok message data]
-  (when-not ok (throw (ex-info message data))))
+  (when-not ok (throw (privacy/error message data))))
 (defn- finite? [x] (and (number? x) (Double/isFinite (double x))))
 
 (defn validate [project]

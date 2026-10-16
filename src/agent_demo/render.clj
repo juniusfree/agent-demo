@@ -1,6 +1,6 @@
 (ns agent-demo.render
   (:require [agent-demo.core :as core] [agent-demo.camera :as camera] [agent-demo.io :as dio] [agent-demo.speech :as speech]
-            [clojure.java.io :as io] [clojure.string :as str])
+            [agent-demo.privacy :as privacy] [clojure.java.io :as io] [clojure.string :as str])
   (:import [java.awt Color Font RenderingHints] [java.awt.image BufferedImage] [javax.imageio ImageIO]))
 
 (defn caption! [text path width height]
@@ -89,7 +89,7 @@
     (concat-file! listing videos)
     (dio/run! "ffmpeg" "-v" "error" "-y" "-f" "concat" "-safe" "0" "-i" listing
               "-c" "copy" "-movflags" "+faststart" output)
-    (dio/write-edn! (str out "/project.edn") project)
+    (dio/write-edn! (str out "/project.edn") (privacy/project-copy project))
     (dio/write-edn! (str out "/verification.edn")
                     {:status :rendered :duration (dio/duration output)
                      :human-review-required [:framing :caption-clearance :claims :private-data]

@@ -1,2 +1,24 @@
 .cpcache/
 work/
+
+# Private configuration and browser authentication
+.env
+.env.*
+!.env.example
+*.local.edn
+.auth/
+playwright/.auth/
+storage-state*.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Captures and generated media, even outside work/
+capture.edn
+timeline.edn
+*.webm
+*.mp4
+*.wav
+*.log
+.DS_Store
