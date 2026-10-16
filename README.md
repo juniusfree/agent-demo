@@ -1,10 +1,12 @@
 # 🤧🦠 If you’re allergic to vibe-coded apps, turn away immediately.
 
+The owner hasn’t even reviewed the code and doesn’t know how it works internally.
+
 **Agent Demo lets coding agents turn finished browser features into narrated demo videos that help reviewers understand what changed.**
 
-https://github.com/user-attachments/assets/dc9ae685-becc-416a-9bf0-0396f307c5b4
+https://github.com/user-attachments/assets/89743701-cc1f-4494-a347-4960adbc80f3
 
-*17-second demo. Turn on sound for narration.*
+*55-second demo. Turn on sound for narration.*
 
 ## Give this to your agent
 

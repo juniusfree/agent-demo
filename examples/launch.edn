@@ -1,0 +1,71 @@
+{:version 1
+ :viewport {:width 1920 :height 1200}
+ :kokoro {:endpoint "http://127.0.0.1:8880" :voice "af_heart"
+          :startup-timeout-ms 60000}
+ :camera [{:at {:scene "name" :time 0} :zoom 1.12
+           :focus {:x 0.55 :y 0.52} :transition 0.7}
+          {:at {:scene "save" :time 0} :zoom 1.0 :transition 0.7}]
+ :scenes
+ [{:id "intro"
+   :narration "A launch starts with an idea. Turn it into a shared project and a short checklist your team can follow."
+   :focus-selector "h1"
+   :actions [{:op :goto :url "http://127.0.0.1:8799"}
+             {:op :checkpoint}]}
+  {:id "name"
+   :narration "Give the project a memorable name. The live preview updates immediately, so you can see how it will appear."
+   :focus-selector "#name"
+   :actions [{:op :fill :selector "#name" :text "Spring launch"}
+             {:op :wait-text :selector "#preview-name" :text "Spring launch"}
+             {:op :checkpoint}]}
+  {:id "access"
+   :narration "Choose team access instead of private. The preview now makes the intended audience clear before you save anything."
+   :focus-selector "#visibility"
+   :actions [{:op :click :selector "#options"}
+             {:op :wait-visible :selector "#team"}
+             {:op :click :selector "#team"}
+             {:op :wait-text :selector "#preview-access" :text "Team access"}
+             {:op :checkpoint}]}
+  {:id "first-task"
+   :narration "Next, open the launch checklist. Add the first concrete step: finish the landing page."
+   :focus-selector "#task-list"
+   :actions [{:op :click :selector "#tasks-tab"}
+             {:op :fill :selector "#task-name" :text "Finish the landing page"}
+             {:op :click :selector "#add-task"}
+             {:op :wait-text :selector "#task-list" :text "Finish the landing page"}
+             {:op :checkpoint}]}
+  {:id "more-tasks"
+   :narration "Add a copy review and a team announcement. Three specific tasks make the plan easier to act on."
+   :focus-selector "#task-list"
+   :actions [{:op :fill :selector "#task-name" :text "Review the launch copy"}
+             {:op :click :selector "#add-task"}
+             {:op :fill :selector "#task-name" :text "Announce the launch to the team"}
+             {:op :click :selector "#add-task"}
+             {:op :wait-text :selector "#task-progress" :text "0 of 3 tasks complete"}
+             {:op :checkpoint}]}
+  {:id "progress"
+   :narration "Mark the landing page complete. The progress summary updates to show one finished task and two still ahead."
+   :focus-selector "#task-progress"
+   :actions [{:op :click :selector "#task-1-toggle"}
+             {:op :wait-text :selector "#task-progress" :text "1 of 3 tasks complete"}
+             {:op :checkpoint}]}
+  {:id "remaining"
+   :narration "Use Remaining to focus on unfinished work. The completed task stays in the project, out of the way."
+   :focus-selector "#task-list"
+   :actions [{:op :click :selector "#filter-open"}
+             {:op :wait-visible :selector "#task-2-toggle"}
+             {:op :checkpoint}]}
+  {:id "save"
+   :narration "Return to all tasks and save the project. This demo stores the settings and checklist in this browser only."
+   :focus-selector "#plan-result"
+   :actions [{:op :click :selector "#filter-all"}
+             {:op :click :selector "#save-plan"}
+             {:op :wait-text :selector "#plan-result" :text "Saved Spring launch — 3 tasks, 1 complete."}
+             {:op :checkpoint}]}
+  {:id "reopen"
+   :narration "Reopen the page and the plan is still here. Your project now has a name, an audience, and a clear next step."
+   :focus-selector "#task-progress"
+   :actions [{:op :goto :url "http://127.0.0.1:8799"}
+             {:op :wait-text :selector "#result" :text "Restored Spring launch — Team"}
+             {:op :click :selector "#tasks-tab"}
+             {:op :wait-text :selector "#task-progress" :text "1 of 3 tasks complete"}
+             {:op :checkpoint}]}]}

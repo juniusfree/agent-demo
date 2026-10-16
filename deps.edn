@@ -4,6 +4,7 @@
         com.microsoft.playwright/playwright {:mvn/version "1.58.0"}}
  :aliases {:run {:main-opts ["-m" "agent-demo.main"]}
            :test {:extra-paths ["test"] :main-opts ["-m" "agent-demo.test-runner"]}
+           :test-fixture {:extra-paths ["test"] :main-opts ["-m" "agent-demo.fixture-test"]}
            :smoke {:extra-paths ["test"] :main-opts ["-m" "agent-demo.smoke"]}
            :test-cuts {:extra-paths ["test"] :main-opts ["-m" "agent-demo.cut-regression"]}
            :test-zoom {:extra-paths ["test"] :main-opts ["-m" "agent-demo.zoom-regression"]}}}

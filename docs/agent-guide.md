@@ -112,6 +112,27 @@ open work/render-v1/demo.mp4 # macOS; use your video player on other systems
 Every capture/render requires a **new output directory**. Failed runs retain
 their partial artifacts for diagnosis; use a new directory when retrying.
 
+## Longer launch walkthrough
+
+`examples/launch.edn` tells a roughly 55-second story: name a project, choose
+team access, add three tasks, complete one, filter remaining work, save, and
+reload. The fixture stores data in browser-local storage only; its Team
+setting illustrates intent, not real multi-user authorization.
+
+With the fixture server running, use fresh output directories:
+
+```sh
+clojure -M:run validate examples/launch.edn
+clojure -M:run capture examples/launch.edn work/launch-capture-v1
+clojure -M:run render examples/launch.edn work/launch-capture-v1/capture.edn work/launch-render-v1
+clojure -M:test-fixture
+```
+
+The browser test covers responsive layouts, previews, access selection, task
+completion/filtering, persistence after reload, storage failure, and corrupt
+saved data. It needs installed Chrome but does not need Kokoro. Captures use
+an isolated context, so each demo starts with an empty browser store.
+
 ## Agent contract
 
 1. Use an authorized, disposable application fixture.

@@ -124,6 +124,24 @@
 - The README uses the stable, standalone attachment URL, not a release
   download URL or a temporary signed media URL.
 
+## Longer launch walkthrough
+
+- `examples/launch.edn` drives nine scenes with real task creation,
+  completion, filtering, browser-local save, and reload.
+- `clojure -M:test-fixture`: 26 browser assertions passed, including
+  persistence, denied storage, corrupt saved data, and three viewport widths.
+  Existing unit tests: 179 assertions passed.
+- Fresh capture and local Kokoro narration produced
+  `work/launch-v1/render/demo.mp4`. Revised camera framing reused that capture
+  and its sentence audio in `work/launch-v1/render-v2/demo.mp4`.
+- Final export: 1920×1200 H.264/AAC; video 54.703060 seconds,
+  audio 54.711708 seconds; FFmpeg decoding passed.
+- Inspected a frame from each scene and corrected the camera framing to keep
+  checklist status clear of captions. The saved and restored states show
+  three tasks with one complete.
+- Audio tracks and timing were checked structurally, not by listening.
+  Team access remains a fixture setting, not a backend authorization system.
+
 ## Limits of this evidence
 
 - Speech was generated and measured, but not listened to during implementation.

@@ -77,6 +77,24 @@
     .note-icon { color: #71916c; font-size: 22px; }
     .note b { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
     .note p { margin: 0; color: var(--muted); font-size: 12px; max-width: 300px; }
+    [hidden], .grid[hidden] { display: none !important; }
+    .steps { display: flex; gap: 8px; margin: -12px 0 26px; }
+    .steps button, .filters button { border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--muted); padding: 9px 15px; font-size: 13px; }
+    .steps button[aria-pressed="true"], .filters button[aria-pressed="true"] { color: var(--green); background: #e8efe3; border-color: #bed0b8; }
+    .task-entry { display: flex; gap: 10px; margin-top: 10px; }
+    .task-entry input { flex: 1; min-width: 0; }
+    .primary { padding: 12px 20px; border: 0; border-radius: 9px; background: var(--green); color: white; font-size: 14px; font-weight: 600; }
+    .task-body { padding: 20px 30px; }
+    #tasks-panel .card-heading { padding: 22px 30px; }
+    .filters { display: flex; gap: 8px; margin: 18px 0 10px; }
+    #task-list { list-style: none; padding: 0; margin: 0; }
+    #task-list li { border-top: 1px solid var(--line); padding: 12px 0; display: flex; align-items: center; gap: 14px; }
+    #task-list label { display: flex; align-items: center; gap: 12px; font-weight: 450; margin: 0; overflow-wrap: anywhere; }
+    #task-list input { width: 19px; height: 19px; accent-color: var(--green); flex-shrink: 0; }
+    #task-list input:checked + span { text-decoration: line-through; color: var(--muted); }
+    .progress-track { height: 7px; border-radius: 5px; background: #e8eee2; margin: 18px 0 12px; overflow: hidden; }
+    #progress-fill { height: 100%; background: #74995a; }
+    #plan-result { padding: 14px 18px; border-radius: 10px; color: #365e40; background: #e8f0e1; font-size: 13px; margin-top: 16px; }
     @media (max-width: 1400px) { .shell { grid-template-columns: 205px 1fr; } main { padding: 34px 36px 120px; } header { padding: 0 36px; height: 70px; } h1 { font-size: 34px; } .grid { gap: 20px; } .card-heading, fieldset { padding: 22px; } .save-row { padding: 18px 22px; } }
     @media (max-width: 1000px) { .shell { grid-template-columns: 1fr; } aside { display: none; } }
     @media (max-width: 700px) { main { padding: 28px 20px 120px; } .grid { grid-template-columns: 1fr; } header { padding: 0 20px; } .page-heading > .badge { display: none; } }
@@ -93,8 +111,9 @@
   <div class="main">
     <header><div class="crumb">Workspace &nbsp; / &nbsp; Projects &nbsp; / &nbsp; <b>Settings</b></div><div class="account">Demo workspace <span class="avatar">JD</span></div></header>
     <main id="settings">
-      <div class="page-heading"><div><div class="eyebrow">Make room for what’s next</div><h1>Project settings</h1><p class="subtitle">A clear name. The right people. Ready to share.</p></div><span class="badge">● &nbsp; Draft project</span></div>
-      <div class="grid">
+      <div class="page-heading"><div><div class="eyebrow">Make room for what’s next</div><h1>Project settings</h1><p class="subtitle">A clear name. The right people. Ready to share.</p></div><span class="badge" id="project-badge">● &nbsp; Draft project</span></div>
+      <div class="steps" aria-label="Project sections"><button id="details-tab" type="button" aria-pressed="true" aria-controls="details-panel">01 &nbsp; Project details</button><button id="tasks-tab" type="button" aria-pressed="false" aria-controls="tasks-panel">02 &nbsp; Launch checklist</button></div>
+      <div class="grid" id="details-panel">
         <div>
           <form class="card" id="project-form">
             <div class="card-heading"><h2>The essentials</h2><p class="hint">Give your project a home your team can recognize.</p></div>
@@ -107,7 +126,7 @@
                 <div id="menu" hidden role="group" aria-label="Project access"><button id="private" type="button" aria-pressed="true">Private<small>A space just for you</small></button><button id="team" type="button" aria-pressed="false">Team access<small>Bring everyone in your workspace along</small></button></div>
               </div>
             </fieldset>
-            <div class="save-row"><span id="change-status">All changes up to date</span><button id="save" type="submit">Save project &nbsp; ↗</button></div>
+            <div class="save-row"><span id="change-status">Draft not saved</span><button id="save" type="submit">Save project &nbsp; ↗</button></div>
           </form>
           <p id="result" role="status" aria-live="polite">No changes saved yet.</p>
         </div>
@@ -116,39 +135,136 @@
           <div class="note"><span class="note-icon" aria-hidden="true">✳</span><div><b>Good work starts with clarity.</b><p>Your project name and access settings help the right people find the right work.</p></div></div>
         </div>
       </div>
+      <div class="grid" id="tasks-panel" hidden>
+        <div>
+          <section class="card" aria-labelledby="checklist-heading">
+            <div class="card-heading"><h2 id="checklist-heading">Small steps. Real progress.</h2><p class="hint">Turn the project into a plan you can actually finish.</p></div>
+            <div class="task-body">
+              <form id="task-form"><label for="task-name">What needs to happen?</label><div class="task-entry"><input id="task-name" placeholder="Add a launch task…" required maxlength="100" autocomplete="off"><button class="primary" id="add-task" type="submit">Add task</button></div></form>
+              <div class="filters" aria-label="Filter checklist"><button id="filter-all" type="button" aria-pressed="true">All tasks</button><button id="filter-open" type="button" aria-pressed="false">Remaining</button></div>
+              <ul id="task-list"></ul><p class="hint" id="empty-tasks">A fresh start. Add your first task above.</p>
+            </div>
+            <div class="save-row"><span class="hint">Saved in this browser only</span><button id="save-plan" class="primary" type="button">Save project &nbsp; ↗</button></div>
+          </section>
+          <p id="plan-result" role="status">Your checklist has not been saved yet.</p>
+        </div>
+        <section class="card preview" aria-label="Project progress"><div class="cover"><span class="cover-label">From idea to launch</span></div><div class="preview-body"><div class="eyebrow" style="margin-bottom:10px">Launch overview</div><h2 id="plan-name">Untitled project</h2><p class="preview-description" id="plan-access">Private project</p><div class="progress-track"><div id="progress-fill"></div></div><p class="hint" id="task-progress" role="status">0 of 0 tasks complete</p><p class="preview-description">One focused checklist. A little more momentum with every step.</p></div></section>
+      </div>
     </main>
   </div>
 </div>
 <script>
   const $ = id => document.getElementById(id);
-  const menu = $('menu');
+  const menu = $('menu'), storageKey = 'forma-demo-project-v1';
+  let tasks = [], filter = 'all', saving = false;
   function setMenu(open) { menu.hidden = !open; $('options').setAttribute('aria-expanded', String(open)); }
-  function dirty() { $('change-status').textContent = 'Unsaved changes'; $('result').dataset.saved = 'false'; }
-  $('name').addEventListener('input', () => { $('preview-name').textContent = $('name').value || 'Untitled project'; dirty(); });
+  function dirty() {
+    $('change-status').textContent = 'Unsaved changes'; $('result').dataset.saved = 'false';
+    $('result').textContent = 'You have unsaved changes.';
+    $('plan-result').textContent = 'You have unsaved changes.';
+    $('project-badge').textContent = '●  Unsaved changes';
+  }
+  function syncPreview() {
+    const name = $('name').value || 'Untitled project', access = $('visibility').textContent;
+    $('preview-name').textContent = name; $('plan-name').textContent = name;
+    $('plan-access').textContent = access === 'Team' ? 'Team access · Demo workspace' : 'Private project';
+  }
+  function renderTasks() {
+    $('task-list').replaceChildren();
+    const visible = tasks.filter(task => filter === 'all' || !task.done);
+    visible.forEach(task => {
+      const row = document.createElement('li'), label = document.createElement('label');
+      const checkbox = document.createElement('input'), title = document.createElement('span');
+      checkbox.type = 'checkbox'; checkbox.id = 'task-' + task.id + '-toggle';
+      checkbox.checked = task.done; checkbox.disabled = saving; title.textContent = task.title;
+      checkbox.addEventListener('change', () => {
+        tasks = tasks.map(item => item.id === task.id ? {...item, done: checkbox.checked} : item);
+        dirty(); renderTasks();
+        const target = $(checkbox.id) || $('filter-open');
+        target.focus();
+      });
+      label.append(checkbox, title); row.append(label); $('task-list').append(row);
+    });
+    $('empty-tasks').hidden = visible.length > 0;
+    $('empty-tasks').textContent = tasks.length ? 'Nothing left here. You’re all caught up.' : 'A fresh start. Add your first task above.';
+    const done = tasks.filter(task => task.done).length;
+    $('task-progress').textContent = done + ' of ' + tasks.length + ' tasks complete';
+    $('progress-fill').style.width = (tasks.length ? 100 * done / tasks.length : 0) + '%';
+    $('filter-all').setAttribute('aria-pressed', String(filter === 'all'));
+    $('filter-open').setAttribute('aria-pressed', String(filter === 'open'));
+  }
+  function section(name) {
+    $('details-panel').hidden = name !== 'details'; $('tasks-panel').hidden = name !== 'tasks';
+    $('details-tab').setAttribute('aria-pressed', String(name === 'details'));
+    $('tasks-tab').setAttribute('aria-pressed', String(name === 'tasks'));
+    document.querySelector('h1').textContent = name === 'details' ? 'Project settings' : 'Launch checklist';
+  }
+  $('details-tab').addEventListener('click', () => section('details'));
+  $('tasks-tab').addEventListener('click', () => section('tasks'));
+  $('name').addEventListener('input', () => { syncPreview(); dirty(); });
   $('options').addEventListener('click', () => setMenu(menu.hidden));
-  function choose(access) {
+  function choose(access, changed = true) {
     $('visibility').textContent = access;
     $('access-description').textContent = access === 'Team' ? 'Everyone in your workspace' : 'Only you have access';
     $('preview-access').textContent = access === 'Team' ? '↗  Team access' : '◇  Private';
     $('team').setAttribute('aria-pressed', String(access === 'Team'));
     $('private').setAttribute('aria-pressed', String(access === 'Private'));
-    setMenu(false); dirty(); $('options').focus();
+    setMenu(false); syncPreview();
+    if (changed) { dirty(); $('options').focus(); }
   }
   $('team').addEventListener('click', () => choose('Team'));
   $('private').addEventListener('click', () => choose('Private'));
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { setMenu(false); $('options').focus(); } });
   document.addEventListener('click', event => { if (!event.target.closest('.access')) setMenu(false); });
-  $('project-form').addEventListener('submit', event => {
-    event.preventDefault(); setMenu(false);
-    const name = $('name').value, visibility = $('visibility').textContent;
-    $('fields').disabled = true; $('save').disabled = true;
-    $('save').textContent = 'Saving…'; $('result').textContent = 'Saving…';
-    setTimeout(() => {
-      $('result').textContent = 'Saved ' + name + ' — ' + visibility;
-      $('result').dataset.saved = 'true'; $('change-status').textContent = 'All changes saved';
-      $('fields').disabled = false; $('save').disabled = false; $('save').textContent = 'Save project  ↗';
-    }, 1000);
+  $('task-name').addEventListener('input', () => $('task-name').setCustomValidity(''));
+  $('task-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const title = $('task-name').value.trim();
+    if (!title) { $('task-name').setCustomValidity('Enter a task name.'); $('task-name').reportValidity(); return; }
+    tasks = [...tasks, {id: Math.max(0, ...tasks.map(task => task.id)) + 1, title, done: false}];
+    $('task-name').value = ''; dirty(); renderTasks(); $('task-name').focus();
   });
+  for (const value of ['all', 'open']) $('filter-' + value).addEventListener('click', () => { filter = value; renderTasks(); });
+  function savedMessage(prefix) {
+    $('result').textContent = prefix + ' ' + $('name').value + ' — ' + $('visibility').textContent;
+    $('result').dataset.saved = 'true'; $('change-status').textContent = 'All changes saved';
+    $('plan-result').textContent = prefix + ' ' + $('name').value + ' — ' + tasks.length + ' tasks, ' + tasks.filter(task => task.done).length + ' complete.';
+    $('project-badge').textContent = '●  Saved locally';
+  }
+  function save() {
+    if (saving) return;
+    if (!$('name').value.trim()) { section('details'); $('name').focus(); $('name').reportValidity(); return; }
+    setMenu(false);
+    const snapshot = {version: 1, name: $('name').value, visibility: $('visibility').textContent, tasks};
+    saving = true;
+    document.querySelectorAll('button, input').forEach(control => control.disabled = true);
+    $('save').textContent = 'Saving…'; $('save-plan').textContent = 'Saving…';
+    $('result').textContent = 'Saving…'; $('plan-result').textContent = 'Saving…';
+    setTimeout(() => {
+      try { localStorage.setItem(storageKey, JSON.stringify(snapshot)); savedMessage('Saved'); }
+      catch (_) {
+        $('result').textContent = 'Could not save. Browser storage is unavailable.';
+        $('plan-result').textContent = $('result').textContent;
+      } finally {
+        saving = false;
+        document.querySelectorAll('button, input').forEach(control => control.disabled = false);
+        $('save').textContent = 'Save project  ↗'; $('save-plan').textContent = 'Save project  ↗';
+      }
+    }, 1000);
+  }
+  $('project-form').addEventListener('submit', event => { event.preventDefault(); save(); });
+  $('save-plan').addEventListener('click', save);
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey));
+    if (saved && saved.version === 1 && typeof saved.name === 'string' && saved.name.trim() && saved.name.length <= 80 &&
+        ['Private', 'Team'].includes(saved.visibility) && Array.isArray(saved.tasks) &&
+        saved.tasks.every(task => task && Number.isSafeInteger(task.id) && task.id > 0 &&
+          typeof task.title === 'string' && task.title.trim() && task.title.length <= 100 && typeof task.done === 'boolean') &&
+        new Set(saved.tasks.map(task => task.id)).size === saved.tasks.length) {
+      tasks = saved.tasks; $('name').value = saved.name; choose(saved.visibility, false); savedMessage('Restored');
+    }
+  } catch (_) { /* An empty or unavailable browser store starts a fresh demo. */ }
+  syncPreview(); renderTasks();
 </script>
 </body>
 </html>
