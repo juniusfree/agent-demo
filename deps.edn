@@ -1,0 +1,9 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.6"}
+        org.clojure/data.json {:mvn/version "2.5.1"}
+        com.microsoft.playwright/playwright {:mvn/version "1.58.0"}}
+ :aliases {:run {:main-opts ["-m" "agent-demo.main"]}
+           :test {:extra-paths ["test"] :main-opts ["-m" "agent-demo.test-runner"]}
+           :smoke {:extra-paths ["test"] :main-opts ["-m" "agent-demo.smoke"]}
+           :test-cuts {:extra-paths ["test"] :main-opts ["-m" "agent-demo.cut-regression"]}
+           :test-zoom {:extra-paths ["test"] :main-opts ["-m" "agent-demo.zoom-regression"]}}}

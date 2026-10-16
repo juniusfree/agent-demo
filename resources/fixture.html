@@ -1,0 +1,9 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Agent Demo Fixture</title>
+<style>body{font:24px system-ui;background:#eef2f7;color:#17253c;padding:80px}main{background:white;padding:48px;border-radius:20px;max-width:850px}h1{margin-top:0}input,button,select{font:inherit;padding:12px;margin:12px 8px 12px 0}button{background:#255ae8;color:white;border:0;border-radius:8px}#result{padding:20px;background:#e2f5e8}label{display:block}#menu{padding:20px;border:1px solid #ccd;max-width:350px}</style></head>
+<body><main><h1>Review-ready project settings</h1><p>Edit a project, choose visibility, and save.</p>
+<label>Project name <input id="name" value="Untitled project"></label>
+<button id="options" onclick="document.querySelector('#menu').hidden=!document.querySelector('#menu').hidden">Visibility options</button>
+<div id="menu" hidden><button id="team" onclick="document.querySelector('#visibility').textContent='Team';document.querySelector('#menu').hidden=true">Team access</button></div>
+<p>Visibility: <strong id="visibility">Private</strong></p>
+<button id="save" onclick="this.disabled=true;document.querySelector('#result').textContent='Saving…';setTimeout(()=>{document.querySelector('#result').textContent='Saved '+document.querySelector('#name').value+' — '+document.querySelector('#visibility').textContent;this.disabled=false},1000)">Save project</button>
+<p id="result" role="status">No changes saved yet.</p></main></body></html>

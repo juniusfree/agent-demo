@@ -1,0 +1,27 @@
+{:version 1
+ :viewport {:width 1920 :height 1200}
+ :kokoro {:endpoint "http://127.0.0.1:8880"
+          :voice "af_heart"
+          ;; Optional, preinstalled service only:
+          ;; :command ["/absolute/path/to/kokoro" "serve"]
+          :startup-timeout-ms 60000}
+ :scenes
+ [{:id "name"
+   :narration "Give the project a clear name so reviewers can identify it."
+   :focus-selector "#name"
+   :actions [{:op :goto :url "http://127.0.0.1:8799"}
+             {:op :fill :selector "#name" :text "Reviewer demo"}
+             {:op :checkpoint}]}
+  {:id "visibility"
+   :narration "Choose team access to make the project visible to your teammates."
+   :focus-selector "#visibility"
+   :actions [{:op :click :selector "#options"}
+             {:op :wait-visible :selector "#team"}
+             {:op :click :selector "#team"}
+             {:op :checkpoint}]}
+  {:id "save"
+   :narration "Save the project. The confirmation shows the saved name and visibility."
+   :focus-selector "#result"
+   :actions [{:op :click :selector "#save"}
+             {:op :wait-text :selector "#result" :text "Saved Reviewer demo — Team"}
+             {:op :checkpoint}]}]}
