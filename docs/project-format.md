@@ -35,7 +35,7 @@ Both may use the same `:version 2` schema. A combined file with both
 
 Capture scenes contain unique IDs, browser actions, and optionally a
 `:focus-selector` for advisory target geometry. They do not contain narration,
-camera instructions, or cuts. Capture runs them once, in recipe order.
+camera/cursor instructions, or cuts. Capture runs them once, in recipe order.
 Authentication setup reads this recipe too; it uses only the initial URL and
 browser executable, not the action sequence.
 
@@ -65,7 +65,7 @@ browser executable, not the action sequence.
 - `:source` names a **recorded scene ID** in the capture manifest supplied to
   `render`. It is not a file path or an index into the shooting recipe.
 - Vector order determines playback. Reorder, omit, or repeat source scenes.
-  Each repeated instance has its own ID, narration, cuts, and camera settings.
+  Each repeated instance has its own ID, narration, cuts, camera, and cursor settings.
 - Rendering uses the recorded manifest, not the current shooting recipe.
   Changing a recipe does not change footage already recorded. An optional
   `:capture` section in a combined file is ignored during rendering.
@@ -88,7 +88,7 @@ clojure -M:run auth work/shoot.local.edn .auth/demo-v1
 # Add the resulting storage-state path to the shooting recipe before capture.
 clojure -M:run capture work/shoot.local.edn work/capture-v1
 clojure -M:run render work/edit.local.edn work/capture-v1/capture.edn work/render-v1
-# Edit narration/order/cuts/camera, then reuse exactly the same capture:
+# Edit narration/order/cuts/camera/cursor, then reuse exactly the same capture:
 clojure -M:run render work/edit.local.edn work/capture-v1/capture.edn work/render-v2
 ```
 
@@ -103,7 +103,7 @@ Review the story so the new order and narration do not misrepresent events.
 | Operation | Fields | Behavior |
 | --- | --- | --- |
 | `:goto` | `:url` | Navigate to HTTP(S), without embedded credentials |
-| `:click` | `:selector` | Smooth cursor movement, click pulse, real click |
+| `:click` | `:selector` | Move the real mouse and click; record presentation events separately |
 | `:fill` | `:selector :text` | Move cursor and fill; password inputs are blocked |
 | `:hover` | `:selector` | Move cursor and hover |
 | `:wait-visible` | `:selector` | Wait for visibility |
@@ -150,6 +150,54 @@ not recorded actions. Keep storage state outside Git.
 - Captions do not zoom. Rendering retains full-chroma, 4x supersampling to
   avoid camera rounding jitter. This costs more processing time.
 
+## Editable cursor
+
+New captures contain **clean video plus a cursor event track** in `capture.edn`.
+The renderer draws the pointer and click effects, then applies the camera, then
+adds captions. Change cursor presentation without rerunning browser actions.
+
+Set initial defaults at the edit's top level (all fields are optional):
+
+```clojure
+:cursor {:size 30 :style :arrow :smoothing :smooth
+         :visible? true :clicks? true}
+```
+
+- `:size`: 8–96 source pixels; the camera scales it with the source.
+- `:style`: `:arrow` or `:dot`.
+- `:smoothing`: `:smooth` (smoothstep) or `:linear` interpolation between
+  recorded movement start/end points. This changes presentation, not browser actions.
+- `:visible?`: hide/show the pointer **and** its click effects.
+- `:clicks?`: independently disable click pulses while retaining the pointer.
+
+Inside an edit scene, use a vector of partial setting changes:
+
+```clojure
+:cursor [{:time 0 :style :dot :size 40}
+         {:time 1.0 :visible? false}
+         {:time 2.0 :visible? true :clicks? false}]
+```
+
+Like camera anchors, these times use original recorded scene seconds. They
+must be ordered, within source bounds, and outside cuts. Example times require
+at least two seconds of source footage. Settings persist across edit scenes;
+omitted settings keep their previous values. Changes apply immediately.
+
+Recorded movement/click events follow the source when you cut, reorder, omit,
+or repeat scenes. A cut jumps to the retained cursor position, rather than
+animating across omitted footage. Removed clicks produce no pulses. During
+checkpoint holds, the pointer stays on the final source frame while remaining
+pulses fade out. Hiding the pointer does not undo hover effects in the source UI.
+
+The capture adapter hides native cursors, records motion endpoints, and observes
+actual trusted primary-button pointer-down events after browser readiness waits.
+Scene-marker pairs map monotonic timestamps to source-video time; accuracy is
+bounded by browser/event delivery and 30fps recording, not sample-exact input
+synchronization. Only coordinates/types/times enter the cursor track, not typed
+text. Capturing native OS cursor shapes, custom cursor images, shake removal,
+and automatic idle hiding are not supported. Footage alone cannot supply an
+editable cursor: capture with this adapter to obtain the event track.
+
 ## Cutting loading intervals
 
 After inspecting the captured footage, add cuts to an **edit scene**:
@@ -179,7 +227,7 @@ as well if you need a shorter video. There is no automatic loading detection.
   different viewport is rejected: changing source resolution needs recapture.
 - The renderer exports 30fps H.264/AAC. Encoded markers define capture scene
   boundaries; the extra 16px marker strip is cropped from output.
-- Pointer/click overlays are baked into footage, not separately editable.
+- Pointer/click overlays are separate render layers driven by captured source-time events.
 - Each edit scene's narration starts with that scene. Kokoro synthesizes full
   sentences; captions follow measured sentence audio. Captions wrap to at most
   two lines. Shorten long sentences rather than splitting speech arbitrarily.

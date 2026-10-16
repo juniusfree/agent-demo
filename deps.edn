@@ -7,5 +7,6 @@
            :test-fixture {:extra-paths ["test"] :main-opts ["-m" "agent-demo.fixture-test"]}
            :smoke {:extra-paths ["test"] :main-opts ["-m" "agent-demo.smoke"]}
            :test-edit {:extra-paths ["test"] :main-opts ["-m" "agent-demo.edit-regression"]}
+           :test-cursor {:extra-paths ["test"] :main-opts ["-m" "agent-demo.cursor-regression"]}
            :test-cuts {:extra-paths ["test"] :main-opts ["-m" "agent-demo.cut-regression"]}
            :test-zoom {:extra-paths ["test"] :main-opts ["-m" "agent-demo.zoom-regression"]}}}

@@ -203,7 +203,7 @@ signing in can create server sessions and audit events.
 1. Use an authorized, disposable application fixture.
 2. Write a version-2 shooting recipe with IDs and actions in `:capture :scenes`.
    Write a separate edit with `:scenes`; each edit instance has a unique `:id`,
-   a recorded `:source` scene ID, narration, and optional cuts/camera settings.
+   a recorded `:source` scene ID, narration, and optional cuts/camera/cursor settings.
 3. Start the shooting recipe with a `:goto` action. Initial navigation is
    excluded from exported content, so footage opens on the app rather than setup.
 4. Use explicit waits for visible completion, not guessed save delays.
@@ -215,7 +215,7 @@ signing in can create server sessions and audit events.
    the resulting state visible. Do not skip steps or reorder footage by default;
    do so only when requested. Judge cuts by the context they remove, not length:
    a long loading wait may be safe to cut, while a brief navigation step may not.
-8. Edit narration, cuts, or local camera settings, then render again from the
+8. Edit narration, cuts, camera, or cursor settings, then render again from the
    same capture. Do not run `capture` for presentation-only changes. When a
    requested edit reuses a source scene, give each instance a distinct edit ID.
 9. Watch the full edit and listen before sharing. Check that viewers can follow
@@ -228,7 +228,7 @@ sessions, MCP, popups, iframe targeting, and arbitrary JavaScript actions are
 not implemented.
 
 See [Project format](project-format.md) for EDN, actions, persistent camera
-instructions, cuts, and presentation timing.
+instructions, editable cursors, cuts, and presentation timing.
 
 ## Troubleshooting
 
@@ -243,7 +243,7 @@ instructions, cuts, and presentation timing.
 | Scene-local camera rejected | Use the version-2 edit schema; version 1 still requires a top-level camera track. |
 | Narration exceeds footage | Shorten the narration, or recapture with a final stable checkpoint. |
 | Caption exceeds two lines | Rewrite the sentence more concisely; do not split speech arbitrarily mid-sentence. |
-| Camera anchor falls inside a cut | Move the anchor to retained footage in the original scene timeline. |
+| Presentation anchor falls inside a cut | Move the anchor to retained footage in the original scene timeline. |
 | Output directory already exists | Choose a fresh directory. Preserve failed artifacts for diagnosis. |
 | Old zoom configuration rejected | Replace `:zoom?` and scene-level `:focus` using the migration instructions in the format guide. |
 
@@ -267,17 +267,20 @@ across CLI processes.
 
 Capture directory:
 - `project.edn`: project copy without browser configuration or the Kokoro launch command.
-- `capture.edn`: absolute source path, encoded scene bounds, actions and events.
+- `capture.edn`: absolute source path, encoded scene bounds, actions, source-time
+  cursor events, and clock-calibration anchors.
 - `raw/*.webm`: original private recording, including synchronization/setup.
 
 Render directory:
 - `demo.mp4`: shareable only after review.
 - `project.edn`, `timeline.edn`: presentation decisions, source-scene references, and timings.
-- Per-cue WAVs, caption PNGs, intermediate scene videos.
+- Per-cue WAVs, caption PNGs, lossless alpha cursor MOVs, intermediate scene videos.
 - `verification.edn`: render metadata and outstanding review checks.
 
-Events use a monotonic action clock for diagnostics; only encoded marker
-bounds drive video cuts. Capture manifests use absolute paths: update
+Scene markers calibrate monotonic input timestamps to source-video time.
+The cursor track follows source footage through cuts and reuse; presentation
+settings follow the edited timeline like the camera. Source video contains no
+injected pointer or click pulse. Capture manifests use absolute paths: update
 `:source` if deliberately relocating footage.
 
 Keep raw footage, authentication state, logs, and configuration private.
@@ -341,6 +344,8 @@ See [GitHub's attachment instructions](https://docs.github.com/en/github-cli/git
 | --- | --- |
 | `core` | Pure validation, cue segmentation, cut and narration timeline planning |
 | `camera` | Pure camera validation, anchor remapping, persistent state, FFmpeg expressions |
+| `cursor` | Pure cursor validation, clock mapping, source sampling, persistent edit settings |
+| `cursor-render` | AWT cursor rasterization and streaming lossless alpha-video encoding |
 | `auth` | Manual login, fresh-context verification, and private state export |
 | `capture` | Playwright browser adapter and encoded boundary extraction |
 | `speech` | Local HTTP and owned-process lifecycle |
@@ -352,7 +357,8 @@ The rendering plan is ordinary immutable EDN. No browser handles, subprocesses,
 or mutable agent session state enter the planner. Java AWT rasterizes caption
 images so the renderer does not depend on FFmpeg's optional libass/drawtext
 filters. Java Playwright is the browser bridge; the only JavaScript is the
-small UI overlay and browser evaluation needed by the adapter.
+small capture hook (cursor hiding, click observation, sync markers) and browser
+evaluation needed by the adapter.
 
 ## Tests
 
@@ -361,8 +367,15 @@ clojure -M:test
 clojure -M:test-zoom
 clojure -M:test-cuts work/cut-check-v1
 clojure -M:test-edit work/edit-check-v1
+clojure -M:test-cursor work/cursor-check-v1
 clojure -M:smoke work/acceptance-v1
 ```
+
+The cursor regression requires Chrome and FFmpeg, not Kokoro. It captures a
+button that initially blocks clicks, checks clean pixels and click/video-clock
+alignment, then checks rendered cursor style/size/visibility/click effects,
+cuts, reordering/reuse, camera transforms, checkpoint holds, and unchanged
+source hashes. Its audio is a synthetic tone, not spoken narration.
 
 The edit regression renders synthetic colored footage and checks source
 reordering, reuse, omission, cuts, local camera tracks, and unchanged source

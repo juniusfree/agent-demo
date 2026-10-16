@@ -1,5 +1,7 @@
 {:version 2
  :kokoro {:endpoint "http://127.0.0.1:8880" :voice "af_heart"}
+ ;; Presentation only: these settings never change the source recording.
+ :cursor {:size 30 :style :arrow :smoothing :smooth :visible? true :clicks? true}
  ;; Show the result first, explain naming, then replay the result.
  ;; This omits the visibility footage without skipping its captured actions.
  :scenes
@@ -10,6 +12,7 @@
   {:id "naming"
    :source "name"
    :narration "Give the project a clear name so reviewers can identify it."
+   :cursor [{:time 0 :style :dot :size 36}]
    :camera [{:time 0 :zoom 1.12
              :focus {:x 0.55 :y 0.52} :transition 0.5}]
    ;; Add measured loading cuts after reviewing the source footage:
@@ -18,4 +21,5 @@
   {:id "result-again"
    :source "save"
    :narration "The saved name and team access are ready."
+   :cursor [{:time 0 :style :arrow :size 30}]
    :camera [{:time 0 :zoom 1 :transition 0.5}]}]}

@@ -1,5 +1,34 @@
 # Implementation verification
 
+## Editable cursor layer
+
+- Unit suite: 34 tests, 330 assertions pass. Browser fixture/auth/timeout suite:
+  3 tests, 46 assertions pass.
+- `clojure -M:test-cursor work/cursor-regression-v5`: passes real-Chrome clean
+  capture, actual click timing after readiness waits, changed target coordinates,
+  and synthetic rendered-pixel checks for style, size, visibility, click pulses,
+  source cuts, reorder/reuse, camera transforms, and checkpoint holds. Three
+  H.264/AAC exports decode cleanly; the source SHA-256 stays unchanged.
+- Cursor settings and motion sampling are pure Clojure data transformations.
+  Rendering streams reusable AWT ABGR frames to a lossless-alpha FFmpeg movie,
+  then composites the cursor before camera transforms and captions.
+- Existing edit/cut/zoom regressions pass at `work/cursor-edit-check-v1` and
+  `work/cursor-cut-check-v1`; zoom motion-error reduction remains 86.8%.
+- Fresh 1920×1200 Forma capture and two narrated exports pass at
+  `work/cursor-fixture-acceptance-v1/acceptance.edn`. Video durations are 12.27s
+  and 16.87s, audio/video differences stay below 0.1s, and source hash remains
+  `0f607bb76f6837bd212aaa6fbecaeca35f5017d0cc0e01d0a0aa433bff63cb1f`.
+  This run reused cached sentence WAVs because local Kokoro was unavailable;
+  it did not verify live speech synthesis. Three sampled frames show the cursor
+  in the camera-transformed source, with captions above it. Full-motion and
+  listening review remain human checks.
+- Clock calibration uses encoded scene-marker pairs and monotonic event times.
+  It is not sample-exact input synchronization. Motion records endpoints and
+  renders linear/smoothstep interpolation; native cursor-shape tracking,
+  automatic idle hiding, shake removal, and custom images are not implemented.
+
+The sections below preserve earlier implementation verification records.
+
 ## Passed
 
 - `clojure -M:test`: 17 tests, 179 assertions, zero failures/errors.

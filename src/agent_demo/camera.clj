@@ -37,9 +37,9 @@
 
 (defn source-time->edited [segment time]
   (ensure! (<= time (:source-duration segment))
-           "Camera anchor exceeds captured scene duration" {:scene (:id segment) :time time})
+           "Presentation anchor exceeds captured scene duration" {:scene (:id segment) :time time})
   (ensure! (not-any? #(and (<= (:start %) time) (< time (:end %))) (:cuts segment))
-           "Camera anchor falls inside a cut; reposition it explicitly" {:scene (:id segment) :time time})
+           "Presentation anchor falls inside a cut; reposition it explicitly" {:scene (:id segment) :time time})
   (+ (:start segment) time
      (- (reduce + 0 (for [{:keys [start end]} (:cuts segment) :when (<= end time)] (- end start))))))
 

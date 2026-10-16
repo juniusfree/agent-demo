@@ -1,6 +1,6 @@
 (ns agent-demo.render
   (:require [agent-demo.core :as core] [agent-demo.camera :as camera] [agent-demo.io :as dio] [agent-demo.speech :as speech]
-            [agent-demo.privacy :as privacy] [clojure.java.io :as io] [clojure.string :as str])
+            [agent-demo.privacy :as privacy] [agent-demo.cursor-render :as cursor-render] [clojure.java.io :as io] [clojure.string :as str])
   (:import [java.awt Color Font RenderingHints] [java.awt.image BufferedImage] [javax.imageio ImageIO]))
 
 (defn caption! [text path width height]
@@ -44,11 +44,16 @@
                            (assoc cue :image path)))
                        (range) (:cues segment))
         images (mapv :image captions)
+        cursor-layer (when (seq (get-in segment [:cursor :events]))
+                       (cursor-render/layer! segment (str out "/" id "-cursor.mov") width height))
         base (str "[0:v]crop=" width ":" height ":0:0,setpts=PTS-STARTPTS,fps=30,"
                   (core/cut-filter (:cuts segment))
                   ",tpad=stop_mode=clone:stop_duration=" (:hold segment)
-                  ",trim=duration=" (:duration segment) ",setpts=PTS-STARTPTS,"
-                  (camera/filter-expression segment width height) "[v0]")
+                  ",trim=duration=" (:duration segment) ",setpts=PTS-STARTPTS[footage]")
+        presentation (str (if cursor-layer
+                            (str "[footage][" (+ 2 (count images)) ":v]overlay=0:0:format=auto:shortest=1,")
+                            "[footage]")
+                          (camera/filter-expression segment width height) "[v0]")
         overlays (map-indexed
                   (fn [i cue]
                     (format "[v%d][%d:v]overlay=0:0:enable='gte(t,%.6f)*lt(t,%.6f)'[v%d]"
@@ -56,7 +61,7 @@
                   captions)
         n (count captions)
         final-label (str "v" n)
-        filters (into [base] overlays)]
+        filters (into [base presentation] overlays)]
     (concat-file! listing (map :path (:cues segment)))
     (dio/run! "ffmpeg" "-v" "error" "-y" "-f" "concat" "-safe" "0" "-i" listing
               "-c:a" "pcm_s16le" audio)
@@ -65,6 +70,7 @@
                     "-ss" (str (:source-start segment)) "-t" (str (:source-duration segment)) "-i" source
                     "-i" audio]
                    (mapcat #(vector "-loop" "1" "-framerate" "30" "-i" %) images)
+                   (when cursor-layer ["-i" cursor-layer])
                    ["-filter_complex" (str/join ";" filters)
                     "-map" (str "[" final-label "]") "-map" "1:a"
                     "-af" "apad" "-t" (str (:duration segment))

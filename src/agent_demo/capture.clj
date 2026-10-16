@@ -1,8 +1,8 @@
 (ns agent-demo.capture
-  (:require [agent-demo.core :as core] [agent-demo.io :as dio] [clojure.java.io :as io] [agent-demo.privacy :as privacy])
+  (:require [agent-demo.core :as core] [agent-demo.cursor :as cursor] [agent-demo.io :as dio] [clojure.java.io :as io] [agent-demo.privacy :as privacy])
   (:import [com.microsoft.playwright Playwright Playwright$CreateOptions BrowserType$LaunchOptions Browser$NewContextOptions
             Locator$WaitForOptions]
-           [com.microsoft.playwright.options WaitForSelectorState]
+           [com.microsoft.playwright.options WaitForSelectorState BindingCallback]
            [java.nio.file Paths]))
 
 (defn now [] (/ (System/nanoTime) 1e9))
@@ -23,12 +23,11 @@
       (core/require! (some? box) "Target is not visible" {:selector selector})
       [loc {:x (+ (.-x box) (/ (.-width box) 2)) :y (+ (.-y box) (/ (.-height box) 2))}])))
 (defn move! [page position destination events base]
-  (install-pointer! page)
   (let [{sx :x sy :y} @position {dx :x dy :y} destination]
+    (swap! events conj (assoc @position :type :pointer :at (- (now) base)))
     (doseq [step (range 1 19)]
       (let [t (/ step 18.0) e (* t t (- 3 (* 2 t)))
             x (+ sx (* (- dx sx) e)) y (+ sy (* (- dy sy) e))]
-        (.evaluate page "p => window.__demoMove(p.x,p.y)" {"x" x "y" y})
         (.move (.mouse page) x y)
         (.waitForTimeout page 16)))
     (reset! position destination)
@@ -53,17 +52,18 @@
                 (core/require! (not (.evaluate loc "e => e.tagName === 'INPUT' && e.type === 'password'"))
                                "Password fields cannot be filled during capture; authenticate outside the recording" {})
                 (.fill loc (:text action)))
-        :click (do (.evaluate page "p => window.__demoPulse(p.x,p.y)" {"x" (:x destination) "y" (:y destination)})
-                   (.click loc)))))
-  (swap! events conj {:type (:op action) :selector (:selector action) :at (- (now) base)}))
+        :click (.click loc))))
+  (swap! events conj {:type :action :op (:op action) :selector (:selector action) :at (- (now) base)}))
 
 (defn marker! [page id]
   ;; A reserved 16px strip is cropped out of exports. Scene boundaries come
   ;; from these encoded frames, not the time at which Java sent a command.
-  (.evaluate page
+  (let [stamp (now)]
+    (.evaluate page
     "c => { let e=document.getElementById('__demo_sync'); if(!e){e=document.createElement('div');e.id='__demo_sync';document.documentElement.append(e);} Object.assign(e.style,{position:'fixed',left:'0',bottom:'0',width:'100vw',height:'16px',pointerEvents:'none',zIndex:2147483647,background:'rgb('+c.join(',')+')'}); }"
     (mapv double [(+ 16 (* 28 (mod id 8))) (+ 16 (* 28 (quot id 8))) 240]))
-  (.waitForTimeout page 180))
+    (.waitForTimeout page 180)
+    stamp))
 
 (defn decode-marker [[r g b]]
   (let [x (Math/round (/ (- r 16) 28.0)) y (Math/round (/ (- g 16) 28.0))]
@@ -91,7 +91,7 @@
                    "First scene must start with :goto; initial navigation occurs before capture content" {})
     (dio/fresh-dir! out)
     (let [{:keys [width height]} (get project :viewport core/default-viewport)
-          events (atom []) position (atom {:x 100 :y 100})]
+          events (atom []) position (atom {:x 100 :y 100}) clock-base (atom nil)]
       (with-open [pw (Playwright/create (doto (Playwright$CreateOptions.)
                                          (.setEnv {"PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD" "1"})))]
         (let [opts (doto (BrowserType$LaunchOptions.) (.setHeadless true))
@@ -107,13 +107,32 @@
                   _ (when-let [state (get-in project [:browser :storage-state])]
                       (.setStorageStatePath options (path state)))
                   context (.newContext browser options)]
+              (.addInitScript context (slurp (io/resource "pointer.js")))
               (try
                 (let [page (.newPage context)
+                      _ (.exposeBinding page "__demoRecordClick"
+                                        (reify BindingCallback
+                                          (call [_ _ args]
+                                            (when-let [base @clock-base]
+                                              (let [p (aget args 0)
+                                                    at (- (now) base)
+                                                    actual {:x (get p "x") :y (get p "y")}]
+                                                ;; Locator.click may reposition after a layout change.
+                                                ;; Keep idle motion still, then jump to the real hit point.
+                                                (when-not (and (== (:x actual) (:x @position))
+                                                               (== (:y actual) (:y @position)))
+                                                  (swap! events into [(assoc @position :type :pointer :at at)
+                                                                      (assoc actual :type :pointer :at at)])
+                                                  (reset! position actual))
+                                                (swap! events conj (assoc actual :type :click :at at))))
+                                            nil)))
                       _ (configure-timeouts! page project)
                       _ (.navigate page (get-in project [:scenes 0 :actions 0 :url]))
                       _ (install-pointer! page)
-                      _ (marker! page 1)
-                      base (now)
+                      _ (.move (.mouse page) 100.0 100.0)
+                      base (marker! page 1)
+                      _ (reset! clock-base base)
+                      _ (swap! events conj {:type :pointer :at 0 :x 100 :y 100})
                       scenes
                       (mapv (fn [i scene]
                               (let [start (- (now) base)
@@ -125,21 +144,28 @@
                                               (let [[_ p] (target! page sel)]
                                                 {:x (/ (:x p) width) :y (/ (:y p) height)}))]
                                   (.waitForTimeout page 250)
-                                  (marker! page (+ i 2))
-                                  {:id (:id scene) :wall-start start :wall-end (- (now) base)
-                                   :checkpoint? (= :checkpoint (:op (last (:actions scene))))
-                                   :actions (:actions scene) :focus focus})))
+                                  (let [end (- (marker! page (+ i 2)) base)]
+                                    {:id (:id scene) :wall-start start :wall-end end
+                                     :checkpoint? (= :checkpoint (:op (last (:actions scene))))
+                                     :actions (:actions scene) :focus focus}))))
                             (range) (:scenes project))
                       video (.video page)]
                   (.close context)
                   (let [source (str (.path video))
                         marks (boundaries source height (range 1 (+ 2 (count scenes))))
+                        anchors (into [{:wall 0 :video (marks 1)}]
+                                      (map-indexed (fn [i scene] {:wall (:wall-end scene) :video (marks (+ i 2))}) scenes))
+                        aligned (mapv #(update % :at (partial cursor/align-time anchors)) @events)
                         data {:version 1 :width width :height height
                               :source (.getCanonicalPath (io/file source))
                               :scenes (mapv (fn [i s] (assoc s :start (marks (inc i)) :end (marks (+ i 2))))
                                             (range) scenes)
-                              :events events :event-clock :monotonic-relative-to-first-marker}]
-                    (dio/write-edn! (str out "/capture.edn") (assoc data :events @events))
+                              :events aligned :event-clock :source-video :clock-anchors anchors
+                              :cursor {:clock :source-video
+                                       :events (mapv #(select-keys % [:type :at :x :y])
+                                                     (filter #(#{:pointer :click} (:type %)) aligned))}}]
+                    (cursor/validate-events data)
+                    (dio/write-edn! (str out "/capture.edn") data)
                     (dio/write-edn! (str out "/project.edn") (privacy/project-copy input))
-                    (assoc data :events @events)))
+                    data))
                 (finally (.close context))))))))))

@@ -1,5 +1,5 @@
 (ns agent-demo.core
-  (:require [clojure.string :as str] [agent-demo.camera :as camera] [agent-demo.privacy :as privacy])
+  (:require [clojure.string :as str] [agent-demo.camera :as camera] [agent-demo.cursor :as cursor] [agent-demo.privacy :as privacy])
   (:import [java.net URI] [java.text BreakIterator] [java.util Locale]))
 
 (defn require! [condition message data]
@@ -59,7 +59,7 @@
                   "Action requires :selector" {}))
       (when (#{:fill :wait-text} (:op a))
         (require! (string? (:text a)) "Action requires :text" {}))))
-  (camera/validate p))
+  (cursor/validate (camera/validate p)))
 
 (defn edit-view
   "Flatten scene-local camera instructions for the existing camera compiler."
@@ -105,7 +105,7 @@
       (let [scenes (get-in project [:capture :scenes])]
         (require! (and (vector? scenes) (seq scenes)) "Capture requires a nonempty :capture :scenes vector" {})
         (doseq [scene scenes]
-          (require! (not-any? #(contains? scene %) [:narration :cuts :camera :focus])
+          (require! (not-any? #(contains? scene %) [:narration :cuts :camera :cursor :focus])
                     "Capture scenes contain actions, not narration or editing instructions" {}))
         (validate-v1 (-> (select-keys project [:viewport :browser])
                          (assoc :version 1
@@ -198,13 +198,17 @@
       ;; Reject invalid anchors before rendering invokes speech synthesis.
       (doseq [instruction (:camera (edit-view project)) :when (= (:id scene) (get-in instruction [:at :scene]))]
         (camera/source-time->edited {:id (:id scene) :start 0 :source-duration duration :cuts cuts}
-                                   (get-in instruction [:at :time])))))
-  capture)
+                                   (get-in instruction [:at :time])))
+      (doseq [instruction (:cursor scene)]
+        (camera/source-time->edited {:id (:id scene) :start 0 :source-duration duration :cuts cuts}
+                                   (:time instruction)))))
+  (cursor/validate-events capture))
 
 (defn plan [project capture speech]
   (validate-edit project)
   (validate-capture project capture)
-  (camera/attach-track (edit-view project)
+  (cursor/attach-track project capture
+   (camera/attach-track (edit-view project)
    (:segments
    (reduce
     (fn [{:keys [time segments]} [scene recorded]]
@@ -233,4 +237,4 @@
                                            (conj out (assoc c :start t :end (+ t (:duration c)))))
                                     out))})}))
     {:time 0 :segments []}
-    (map vector (:scenes project) (recorded-scenes project capture))))))
+    (map vector (:scenes project) (recorded-scenes project capture)))))))
