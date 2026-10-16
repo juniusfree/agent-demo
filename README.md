@@ -1,4 +1,4 @@
-# If you’re allergic to vibe-coded apps, turn away immediately.
+# 🤧 If you’re allergic to vibe-coded apps, turn away immediately.
 
 **Agent Demo lets coding agents turn finished browser features into narrated demo videos that help reviewers understand what changed.**
 
@@ -31,6 +31,88 @@ Screen Studio feature-complete replacement or a correctness/audit tool.
 Clojure resolves pinned Maven dependencies on first use. Capture disables
 Playwright's automatic browser downloads and defaults to installed Chrome.
 Nothing installs or downloads Kokoro. No cloud speech fallback exists.
+
+## Setup instructions for agents
+
+Give your coding agent this prompt:
+
+> Set up https://github.com/juniusfree/agent-demo locally. Read its README
+> and follow “Setup instructions for agents.” Reuse existing dependencies;
+> ask before installing missing software or downloading models. Verify the
+> bundled fixture before using it on my app. Use the supplied CLI and EDN
+> format—do not build replacement recording or rendering helpers. Report
+> the checkout location, test results, demo path, and anything not verified.
+
+### Agent checklist
+
+1. **Find or clone the checkout.** Reuse an existing clone; otherwise choose
+   an available directory and run:
+
+   ```sh
+   git clone https://github.com/juniusfree/agent-demo.git
+   cd agent-demo
+   ```
+
+   Run all following commands from the checkout root.
+
+2. **Check prerequisites before changing the machine.** Confirm the Clojure
+   CLI, JDK 17+, Chrome (or a configured Chromium executable), FFmpeg, and
+   FFprobe. Useful checks:
+
+   ```sh
+   clojure -Sdescribe
+   java -version
+   ffmpeg -version
+   ffprobe -version
+   ```
+
+   Ask before installing missing dependencies. Do not assume a package manager
+   or operating system. Capture defaults to the installed Chrome channel;
+   configure `:browser :executable` when using another Chromium installation.
+
+3. **Resolve dependencies and install the recording helper.** These commands
+   download Maven dependencies and Playwright’s FFmpeg helper. Run them after
+   confirming that downloads are permitted:
+
+   ```sh
+   clojure -P
+   clojure -M -m com.microsoft.playwright.CLI install ffmpeg
+   clojure -M:test
+   clojure -M:test-zoom
+   ```
+
+   Do not run a blanket Playwright browser install: this tool uses the
+   installed browser by default.
+
+4. **Configure local speech.** Check the user's preinstalled Kokoro service:
+
+   ```sh
+   curl --fail --silent --show-error http://127.0.0.1:8880/health
+   ```
+
+   The tool expects `{"status":"ok"}`. If the service is unavailable, ask for
+   its actual foreground launch command and configure `:kokoro :command` in
+   a local project EDN. The tool will start it and wait for readiness. Do not
+   invent a launcher, install models, use cloud speech, or stop an existing
+   service. Health alone does not prove speech generation works; rendering
+   the fixture verifies that next.
+
+5. **Capture and render the fixture.** Follow [Run the fixture](#run-the-fixture)
+   below. If you need a custom speech configuration, copy `examples/fixture.edn`
+   into `work/` and use that copy for both capture and render. Keep the fixture
+   server running in a separate terminal or a managed background process.
+   Use fresh output directories for retries; retain failed artifacts.
+
+6. **Review and hand off.** Check the exported video's framing, captions,
+   audio, and demonstrated result. If you cannot listen or watch playback,
+   state that limitation. Report the absolute checkout and MP4 paths, dependency
+   configuration, tests run, and outstanding checks. Stop only fixture/service
+   processes you started. Keep private auth state and raw recordings out of Git.
+
+For a real app, obtain its URL, the feature to demonstrate, and authorized
+throwaway account/data. Follow the [agent contract](#agent-contract). Camera
+movement is opt-in through `:camera`; cuts are explicit agent-authored edits.
+Neither requires new capture helpers.
 
 ## Run the fixture
 
