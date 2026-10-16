@@ -43,7 +43,13 @@
                                    "-vf" "crop=16:16:600:300,scale=1:1"
                                    "-pix_fmt" "rgb24" "-f" "rawvideo" "-"))]
         (check! (and (> (rgb 0) 200) (< (rgb 1) 30) (< (rgb 2) 30))
-                "Checkpoint hold froze before the completed UI state")))))
+                "Checkpoint hold froze before the completed UI state")
+        (let [corner (mapv #(bit-and % 255)
+                          (dio/binary! "ffmpeg" "-v" "error" "-ss" "2" "-i" video "-frames:v" "1"
+                                       "-vf" "crop=16:16:24:24,scale=1:1"
+                                       "-pix_fmt" "rgb24" "-f" "rawvideo" "-"))]
+          (check! (and (> (corner 0) 200) (< (corner 1) 30) (< (corner 2) 30))
+                  "Checkpoint hold added an unwanted corner label"))))))
 
 (defn -main [& [directory]]
   (let [out (or directory (str "work/smoke-" (System/currentTimeMillis)))

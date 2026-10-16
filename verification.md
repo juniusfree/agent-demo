@@ -142,6 +142,15 @@
 - Audio tracks and timing were checked structurally, not by listening.
   Team access remains a fixture setting, not a backend authorization system.
 
+## Unlabelled checkpoint holds
+
+- Removed the Paused overlay without changing checkpoint timing or captions.
+- `work/launch-v1/render-v4/demo.mp4` reuses the existing capture and sentence
+  audio; video/audio durations remain 54.703060/54.711708 seconds.
+- Unit tests and the rendered checkpoint regression pass. The regression
+  checks both the completed state and the absence of an upper-left overlay.
+- Final MP4 decoding and a sampled hold frame passed inspection.
+
 ## Limits of this evidence
 
 - Speech was generated and measured, but not listened to during implementation.

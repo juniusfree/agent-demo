@@ -3,7 +3,7 @@
             [clojure.java.io :as io] [clojure.string :as str])
   (:import [java.awt Color Font RenderingHints] [java.awt.image BufferedImage] [javax.imageio ImageIO]))
 
-(defn caption! [text path width height label?]
+(defn caption! [text path width height]
   (let [img (BufferedImage. width height BufferedImage/TYPE_INT_ARGB)
         g (.createGraphics img)
         scale (min (/ width 1280.0) (/ height 800.0))
@@ -11,7 +11,7 @@
     (try
       (.scale g scale scale)
       (.setRenderingHint g RenderingHints/KEY_TEXT_ANTIALIASING RenderingHints/VALUE_TEXT_ANTIALIAS_ON)
-      (.setFont g (Font. "SansSerif" Font/PLAIN (if label? 20 30)))
+      (.setFont g (Font. "SansSerif" Font/PLAIN 30))
       (let [metrics (.getFontMetrics g)
             lines (reduce (fn [lines word]
                             (let [current (peek lines) candidate (str current (when (seq current) " ") word)]
@@ -22,8 +22,8 @@
             _ (core/require! (<= (count lines) 2) "Caption exceeds two lines; shorten narration wording" {:text text})
             box-width (+ 32 (apply max (map #(.stringWidth metrics %) lines)))
             box-height (+ 20 (* 38 (count lines)))
-            x (if label? 20 (quot (- width box-width) 2))
-            y (if label? 20 (- height 110 box-height))]
+            x (quot (- width box-width) 2)
+            y (- height 110 box-height)]
         (.setColor g (Color. 15 18 24 220))
         (.fillRoundRect g x y box-width box-height 12 12)
         (.setColor g Color/WHITE)
@@ -40,12 +40,10 @@
         video (str out "/" id ".mp4")
         captions (mapv (fn [i cue]
                          (let [path (str out "/" id "-caption-" i ".png")]
-                           (caption! (:text cue) path width height false)
+                           (caption! (:text cue) path width height)
                            (assoc cue :image path)))
                        (range) (:cues segment))
-        pause-image (str out "/" id "-paused.png")
-        _ (when (pos? (:hold segment)) (caption! "Paused" pause-image width height true))
-        images (cond-> (mapv :image captions) (pos? (:hold segment)) (conj pause-image))
+        images (mapv :image captions)
         base (str "[0:v]crop=" width ":" height ":0:0,setpts=PTS-STARTPTS,fps=30,"
                   (core/cut-filter (:cuts segment))
                   ",tpad=stop_mode=clone:stop_duration=" (:hold segment)
@@ -57,11 +55,8 @@
                             i (+ i 2) (double (:start cue)) (double (:end cue)) (inc i)))
                   captions)
         n (count captions)
-        final-label (str "v" (if (pos? (:hold segment)) (inc n) n))
-        filters (cond-> (into [base] overlays)
-                  (pos? (:hold segment))
-                  (conj (format "[v%d][%d:v]overlay=0:0:enable='gte(t,%.6f)'[v%d]"
-                                n (+ n 2) (double (or (:footage-duration segment) (:source-duration segment))) (inc n))))]
+        final-label (str "v" n)
+        filters (into [base] overlays)]
     (concat-file! listing (map :path (:cues segment)))
     (dio/run! "ffmpeg" "-v" "error" "-y" "-f" "concat" "-safe" "0" "-i" listing
               "-c:a" "pcm_s16le" audio)

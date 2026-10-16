@@ -168,7 +168,7 @@ edited output. The tool never chooses cuts automatically.
 - Voice defaults: `af_heart`, generation speed 0.95, then pitch-preserving
   `atempo=1.25`.
 - Longer narration holds the scene's final frame only if capture recorded a
-  final checkpoint. Holds carry a small “Paused” label. Actions retain their
+  final checkpoint. Holds do not add an on-screen label. Actions retain their
   original speed. Without a checkpoint, shorten narration or recapture.
 - Captions render after zoom, scale proportionally with the viewport, and
   stay above player controls.

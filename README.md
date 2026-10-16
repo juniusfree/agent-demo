@@ -6,9 +6,9 @@
 
 **Agent Demo lets coding agents turn finished browser features into narrated demo videos that help reviewers understand what changed.**
 
-https://github.com/user-attachments/assets/89743701-cc1f-4494-a347-4960adbc80f3
+> 🔊 **Turn on sound for narration.** · 55-second demo
 
-*55-second demo. Turn on sound for narration.*
+https://github.com/user-attachments/assets/9229e8a9-017b-4c4b-8ef3-25035c1d4e74
 
 ## Give this to your agent
 
