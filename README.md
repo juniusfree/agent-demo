@@ -1,6 +1,8 @@
 # 🤧🦠 If you’re allergic to vibe-coded apps, turn away immediately.
 
-The owner hasn’t even reviewed the code and doesn’t know how it works internally.
+*The owner hasn’t even reviewed the code and doesn’t know how it works internally.*
+
+---
 
 **Agent Demo lets coding agents turn finished browser features into narrated demo videos that help reviewers understand what changed.**
 
