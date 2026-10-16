@@ -184,6 +184,28 @@
 - No personal browser debugging connection is used. The command does not
   automatically decide whether the user is authenticated.
 
+## Independent source and edit (version 2)
+
+- Shooting recipes now put actions in `:capture :scenes`. Separate edit files
+  reference recorded IDs through `:source`; each edit instance owns narration,
+  cuts, and camera instructions. Reorder, omit, and reuse footage without
+  executing browser actions. Version-1 projects/capture manifests still work.
+- 244 unit assertions and 43 real-browser assertions pass. Tests cover repeated
+  sources with unique IDs, omissions, unknown/duplicate IDs, local camera/cut
+  remapping, checkpoint timing, and exact version-1 migration equivalence.
+  Authentication roundtrip now also exercises a capture-only version-2 recipe.
+- `work/edit-v2-regression-v2/` renders two edits from synthetic red/blue
+  footage and verifies output frame colors/order, reuse, cuts, media decoding,
+  and unchanged source hash. Synthetic tone audio replaces speech in this test.
+  The edit ID `demo` also verifies that intermediate clips cannot collide
+  with the final `demo.mp4`.
+- Fresh real-Chrome capture at `work/source-edit-acceptance-v1/` used the new
+  shooting recipe. Its edit played save/name/save from name/visibility/save
+  footage. H.264/AAC decoding passed, and the source SHA256 stayed unchanged.
+  This run reused cached sentence audio, not live Kokoro.
+- Existing zoom and cut regressions pass. Full-motion/listening review of the
+  new example edit remains a human check; this is not a multi-track editor.
+
 ## Limits of this evidence
 
 - Speech was generated and measured, but not listened to during implementation.

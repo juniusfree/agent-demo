@@ -76,8 +76,8 @@ Nothing installs or downloads Kokoro. No cloud speech fallback exists.
    the fixture verifies that next.
 
 5. **Capture and render the fixture.** Follow [Run the fixture](#run-the-fixture)
-   below. If you need a custom speech configuration, copy `examples/fixture.edn`
-   into `work/` and use that copy for both capture and render. Keep the fixture
+   below. If you need a custom speech configuration, copy `examples/fixture-edit.edn`
+   into `work/` and use that copy for render. Keep the fixture
    server running in a separate terminal or a managed background process.
    Use fresh output directories for retries; retain failed artifacts.
 
@@ -90,7 +90,7 @@ Nothing installs or downloads Kokoro. No cloud speech fallback exists.
 For a real app, obtain its URL, the feature to demonstrate, and authorized
 throwaway account/data. If sign-in is required, use [Authentication setup](#authentication-setup)
 before capture; do not attach to the user's daily Chrome profile. Follow the [agent contract](#agent-contract). Camera
-movement is opt-in through `:camera`; cuts are explicit agent-authored edits.
+movement is opt-in through scene-local `:camera`; cuts are explicit agent-authored edits.
 Neither requires new capture helpers.
 
 ## Run the fixture
@@ -104,18 +104,24 @@ clojure -M:run fixture
 In another:
 
 ```sh
-clojure -M:run validate examples/fixture.edn
-clojure -M:run capture examples/fixture.edn work/capture-v1
-clojure -M:run render examples/fixture.edn work/capture-v1/capture.edn work/render-v1
+clojure -M:run validate examples/fixture-shoot.edn
+clojure -M:run validate examples/fixture-edit.edn
+clojure -M:run capture examples/fixture-shoot.edn work/capture-v1
+clojure -M:run render examples/fixture-edit.edn work/capture-v1/capture.edn work/render-v1
 open work/render-v1/demo.mp4 # macOS; use your video player on other systems
 ```
+
+The version-2 shooting recipe contains browser actions; the separate edit
+contains playback order, narration, cuts, and scene-local camera instructions.
+The sample edit reorders and reuses captured scenes. Change the edit and render
+again from the same capture. Browser actions run only when you call `capture`.
 
 Every capture/render requires a **new output directory**. Failed runs retain
 their partial artifacts for diagnosis; use a new directory when retrying.
 
 ## Longer launch walkthrough
 
-`examples/launch.edn` tells a roughly 55-second story: name a project, choose
+The backward-compatible version-1 `examples/launch.edn` tells a roughly 55-second story: name a project, choose
 team access, add three tasks, complete one, filter remaining work, save, and
 reload. The fixture stores data in browser-local storage only; its Team
 setting illustrates intent, not real multi-user authorization.
@@ -141,7 +147,8 @@ personal browser. It opens a separate, visible Chrome instance with a fresh
 context. It does not record video, trace, take screenshots, run scene actions,
 or reuse an existing `:storage-state`. Use a dedicated demo account.
 
-1. Put the real app's URL in the first `:goto` of your local project.
+1. Put the real app's URL in the first `:goto` of your local shooting recipe
+   (`:capture :scenes` in version 2; `:scenes` in version 1).
 2. Run this command in an **interactive terminal** the user can access:
 
    ```sh
@@ -193,13 +200,17 @@ signing in can create server sessions and audit events.
 ## Agent contract
 
 1. Use an authorized, disposable application fixture.
-2. Write an EDN project with a narration and action sequence per scene.
-3. Start with a `:goto` action. Initial navigation is excluded from exported
-   content, so the first scene opens on the app rather than browser setup.
+2. Write a version-2 shooting recipe with IDs and actions in `:capture :scenes`.
+   Write a separate edit with `:scenes`; each edit instance has a unique `:id`,
+   a recorded `:source` scene ID, narration, and optional cuts/camera settings.
+3. Start the shooting recipe with a `:goto` action. Initial navigation is
+   excluded from exported content, so footage opens on the app rather than setup.
 4. Use explicit waits for visible completion, not guessed save delays.
-5. End a scene with `:checkpoint` only when its final frame is safe to hold.
+5. End a captured scene with `:checkpoint` only when its final frame is safe to hold.
 6. Capture once. Review the real results before narrating success.
-7. Edit narration, cuts, and the camera track, then render again from the same capture.
+7. Reorder, omit, or repeat source scenes and edit narration, cuts, or local camera
+   settings, then render again from the same capture. Do not run `capture` for
+   presentation-only changes. Reused clips need distinct edit IDs.
 8. Inspect final frames and listen before sharing. The tool does not judge
    whether narration is true.
 
@@ -218,12 +229,14 @@ instructions, cuts, and presentation timing.
 | Browser or recording helper missing | Verify Chrome or the configured executable; install only the documented recording helper after download approval. |
 | Kokoro unavailable | Check the loopback endpoint or request the actual foreground launcher. Do not invent a command or substitute cloud speech. |
 | Isolated browser shows sign-in | Run `auth` in an interactive terminal, verify the transferred session, and set `:browser :storage-state`. Use a new auth directory for expired sessions. |
-| Selector fails or times out | Inspect the real UI and use a unique selector with an explicit completion wait. Recapture after changing actions. |
+| Selector fails or times out | Inspect the real UI and fix the shooting recipe with a unique selector and an explicit completion wait. Capture new footage only when the browser actions must change. |
+| Unknown recorded source ID | Match edit `:source` to an ID in the supplied capture manifest, not an edit-instance ID. |
+| Scene-local camera rejected | Use the version-2 edit schema; version 1 still requires a top-level camera track. |
 | Narration exceeds footage | Shorten the narration, or recapture with a final stable checkpoint. |
 | Caption exceeds two lines | Rewrite the sentence more concisely; do not split speech arbitrarily mid-sentence. |
 | Camera anchor falls inside a cut | Move the anchor to retained footage in the original scene timeline. |
 | Output directory already exists | Choose a fresh directory. Preserve failed artifacts for diagnosis. |
-| Old zoom configuration rejected | Replace `:zoom?` and scene-level `:focus` with the explicit camera track described in the format guide. |
+| Old zoom configuration rejected | Replace `:zoom?` and scene-level `:focus` using the migration instructions in the format guide. |
 
 ## Kokoro lifecycle
 
@@ -250,7 +263,7 @@ Capture directory:
 
 Render directory:
 - `demo.mp4`: shareable only after review.
-- `project.edn`, `timeline.edn`: reproducible presentation decisions and timings.
+- `project.edn`, `timeline.edn`: presentation decisions, source-scene references, and timings.
 - Per-cue WAVs, caption PNGs, intermediate scene videos.
 - `verification.edn`: render metadata and outstanding review checks.
 
@@ -338,8 +351,14 @@ small UI overlay and browser evaluation needed by the adapter.
 clojure -M:test
 clojure -M:test-zoom
 clojure -M:test-cuts work/cut-check-v1
+clojure -M:test-edit work/edit-check-v1
 clojure -M:smoke work/acceptance-v1
 ```
+
+The edit regression renders synthetic colored footage and checks source
+reordering, reuse, omission, cuts, local camera tracks, and unchanged source
+hashes across two exports. It uses synthetic audio and needs FFmpeg, not
+Chrome or Kokoro. Unit tests also verify version-1 migration equivalence.
 
 The cut regression renders a synthetic action/wait/result recording and
 verifies that the action and result survive while the wait and its duration

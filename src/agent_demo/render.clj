@@ -37,7 +37,7 @@
 (defn render-segment! [source segment out width height]
   (let [id (:id segment) audio (str out "/" id "-audio.wav")
         listing (str out "/" id "-audio.txt")
-        video (str out "/" id ".mp4")
+        video (str out "/" id "-scene.mp4")
         captions (mapv (fn [i cue]
                          (let [path (str out "/" id "-caption-" i ".png")]
                            (caption! (:text cue) path width height)
@@ -73,7 +73,7 @@
     video))
 
 (defn render! [project capture out]
-  (core/validate-project project)
+  (core/validate-edit project)
   (core/validate-capture project capture)
   (core/require! (.isFile (io/file (:source capture))) "Source recording is missing" {})
   (let [source-duration (dio/duration (:source capture))]

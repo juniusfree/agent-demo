@@ -1,180 +1,205 @@
 # Project format
 
-Use this reference to author and revise EDN projects. Start with the
-[agent guide](agent-guide.md) for setup, CLI commands, service ownership,
-and verification. Run commands from the repository root.
+Agent Demo uses text as an editable video project. **Capture produces footage;
+an edit references that footage.** Editing never reruns browser actions.
 
-[Back to README](../README.md)
+Start with the [agent guide](agent-guide.md). Commands and paths are relative
+to the checkout root. [Back to README](../README.md)
 
-## Project data
+## Version 2: separate shooting from editing
+
+Use two files so presentation changes cannot change the shooting recipe.
+Both may use the same `:version 2` schema. A combined file with both
+`:capture` and `:scenes` also works, but separate files are easier to review.
+
+### Shooting recipe: `work/shoot.local.edn`
 
 ```clojure
-{:version 1
+{:version 2
  :viewport {:width 1920 :height 1200}
- :browser {:executable "/absolute/path/to/chromium"
-           ;; Optional private Playwright storage-state file; never commit it.
-           :storage-state "/private/path/session.json"}
- :kokoro {:endpoint "http://127.0.0.1:8880"
-          :voice "af_heart"
-          :command ["/absolute/path/to/preinstalled-kokoro" "serve"]
-          :startup-timeout-ms 60000}
- :scenes
- [{:id "rename"
-   :narration "Give the project a recognizable name."
-   :focus-selector "#name"
-   :actions [{:op :goto :url "http://localhost:3000"}
-             {:op :fill :selector "#name" :text "Reviewer demo"}
-             {:op :checkpoint}]}]}
+ ;; Optional private session from the auth command:
+ ;; :browser {:storage-state ".auth/demo-v1/storage-state.json"}
+ :capture
+ {:scenes
+  [{:id "name"
+    :actions [{:op :goto :url "http://127.0.0.1:8799"}
+              {:op :fill :selector "#name" :text "Reviewer demo"}
+              {:op :checkpoint}]}
+   {:id "save"
+    :actions [{:op :click :selector "#save"}
+              {:op :wait-text :selector "#result" :text "Saved"}
+              {:op :checkpoint}]}]}}
 ```
 
-Omit `:browser` to use installed Chrome with a fresh isolated context.
-For authenticated demos, run `clojure -M:run auth project.edn .auth/demo-v1`
-and set `:browser :storage-state` to the resulting private JSON file.
-See [Authentication setup](agent-guide.md#authentication-setup) for the manual
-login and fresh-context verification steps. Authentication is never recorded.
-The sample Kokoro command is illustrative: configure the actual foreground
-launcher for your installation. Do not configure a daemonizing launcher.
+Capture scenes contain unique IDs, browser actions, and optionally a
+`:focus-selector` for advisory target geometry. They do not contain narration,
+camera instructions, or cuts. Capture runs them once, in recipe order.
+Authentication setup reads this recipe too; it uses only the initial URL and
+browser executable, not the action sequence.
 
-Supported action maps:
+### Edit: `work/edit.local.edn`
+
+```clojure
+{:version 2
+ :kokoro {:endpoint "http://127.0.0.1:8880" :voice "af_heart"}
+ :scenes
+ [{:id "opening"
+   :source "save"
+   :narration "Here is the saved project."
+   :camera [{:time 0 :zoom 1 :transition 0}]}
+  {:id "explanation"
+   :source "name"
+   :narration "Give the project a clear name."
+   :camera [{:time 0 :zoom 1.4
+             :focus {:x 0.3 :y 0.4} :transition 0.6}]}
+  {:id "reprise"
+   :source "save"
+   :narration "The confirmation shows the project is saved."
+   :camera [{:time 0 :zoom 1 :transition 0.5}]}]}
+```
+
+- `:id` uniquely identifies this **edit instance**, including its audio and
+  intermediate files. Use letters, digits, hyphens, or underscores.
+- `:source` names a **recorded scene ID** in the capture manifest supplied to
+  `render`. It is not a file path or an index into the shooting recipe.
+- Vector order determines playback. Reorder, omit, or repeat source scenes.
+  Each repeated instance has its own ID, narration, cuts, and camera settings.
+- Rendering uses the recorded manifest, not the current shooting recipe.
+  Changing a recipe does not change footage already recorded. An optional
+  `:capture` section in a combined file is ignored during rendering.
+- One edit uses one capture manifest. Importing unrelated recordings, arbitrary
+  source in/out ranges, silent scenes, and multiple video tracks are not yet
+  supported. Use cuts to remove intervals from a recorded scene.
+- Narration is required per edit scene. Captions use the same text; independent
+  caption text or word-to-action synchronization is not supported.
+- Camera is optional and defaults to full view until the first instruction.
+  It persists across edit instances, including repetitions. Omit it to keep
+  current framing, or set `:zoom 1` to return to full view.
+
+### Commands
+
+```sh
+clojure -M:run validate work/shoot.local.edn
+clojure -M:run validate work/edit.local.edn
+# If sign-in is needed, follow the interactive authentication guide:
+clojure -M:run auth work/shoot.local.edn .auth/demo-v1
+# Add the resulting storage-state path to the shooting recipe before capture.
+clojure -M:run capture work/shoot.local.edn work/capture-v1
+clojure -M:run render work/edit.local.edn work/capture-v1/capture.edn work/render-v1
+# Edit narration/order/cuts/camera, then reuse exactly the same capture:
+clojure -M:run render work/edit.local.edn work/capture-v1/capture.edn work/render-v2
+```
+
+Every output directory must be new. `examples/fixture-shoot.edn` and
+`examples/fixture-edit.edn` form a runnable pair; the edit opens with the saved
+result, explains naming, then repeats the result while omitting access footage.
+Reordering does not undo any application state changes made during capture.
+Review the story so the new order and narration do not misrepresent events.
+
+## Browser actions
 
 | Operation | Fields | Behavior |
 | --- | --- | --- |
-| `:goto` | `:url` | Navigate to HTTP(S) URL |
+| `:goto` | `:url` | Navigate to HTTP(S), without embedded credentials |
 | `:click` | `:selector` | Smooth cursor movement, click pulse, real click |
-| `:fill` | `:selector :text` | Move cursor, then fill the real field |
-| `:hover` | `:selector` | Move cursor, then hover |
+| `:fill` | `:selector :text` | Move cursor and fill; password inputs are blocked |
+| `:hover` | `:selector` | Move cursor and hover |
 | `:wait-visible` | `:selector` | Wait for visibility |
 | `:wait-text` | `:selector :text` | Wait for a unique CSS match containing text |
-| `:checkpoint` | none | Mark the stable end of a scene as holdable |
+| `:checkpoint` | none | Mark the final screen as safe to hold |
 
-Use unique CSS selectors. Actions/waits time out after 15 seconds. A failure
-aborts capture; it does not claim a successful demo. Browser operations can
-change real application data: isolation is **not** authorization to mutate
-production.
+The first capture scene must start with `:goto`. Use unique CSS selectors.
+Actions/waits time out after 15 seconds. Use a disposable, authorized fixture;
+isolation is not authorization to change production data.
 
-## Revising without recapture
+Installed Chrome is the default. Set `:browser :executable` to use another
+trusted Chromium installation. Sign in through the [auth workflow](agent-guide.md#authentication-setup),
+not recorded actions. Keep storage state outside Git.
 
-Copy/edit the project, retaining scene IDs, order, and actions. Narration,
-cuts, and the camera track are presentation data; none requires recapture.
-A scene's `:focus-selector` records normalized geometry in `capture.edn`
-for the agent to reference. It does not move the camera automatically.
-
-## Persistent camera track
-
-Omit `:camera` (or use `:camera []`) for a stationary full view. To direct
-the camera, add this **top-level** project field:
+## Scene-local camera
 
 ```clojure
-:camera
-[{:at {:scene "name" :time 0.4}
-  :zoom 1.35
-  :focus {:x 0.20 :y 0.26}
-  :transition 0.6}
-
- {:at {:scene "save" :time 0.5}
-  :zoom 1.0
-  :transition 0.6}]
+:camera [{:time 0.2 :zoom 1.4 :focus {:x 0.3 :y 0.4} :transition 0.6}
+         {:time 3.0 :zoom 1 :transition 0.5}]
 ```
 
-The camera transitions in, **holds the exact framing across scenes**, then
-returns to full view only when instructed. There is no automatic zoom-out,
-scene reset, or repeated in/out curve.
+- Times are seconds relative to the **original recorded source scene**, not
+  edited playback. Measure first; the example requires at least three seconds.
+- Zoom ranges from 1 to 2.5. Above 1, `:focus` requires normalized x/y coordinates
+  in the original viewport. Coordinates range from 0 to 1.
+- Transitions default to 0.5 seconds, with smoothstep easing. Zero is immediate.
+- Instructions must be strictly ordered within a scene. A source-end anchor
+  is allowed, but anchors inside removed intervals are rejected.
+- Cuts and earlier narration holds remap anchors to output time. Camera
+  transitions can span scene boundaries and holds; an interrupted transition
+  starts from its current interpolated state. They do not extend the export.
+- Framing remains until the next instruction, even in another edit scene.
+  Local camera instructions flatten into one continuous output track.
+- Anchors that coincide after editing are rejected; move or remove one.
+- Captions do not zoom. Rendering retains full-chroma, 4x supersampling to
+  avoid camera rounding jitter. This costs more processing time.
 
-- `:at :time` is seconds from the named scene's **original captured start**.
-  It must be within that source scene, including its end checkpoint.
-- `:zoom` is 1–2.5. A value of 1 returns to the full viewport.
-- Zoomed instructions require `:focus {:x ... :y ...}`, normalized 0–1
-  against the original viewport. Framing clamps at viewport edges.
-- `:transition` is seconds of eased motion, default 0.5. Zero changes the
-  framing immediately. Motion uses smoothstep interpolation.
-- The target holds indefinitely after the transition. Transitions may cross
-  scene boundaries or continue during a narration checkpoint hold.
-- If an instruction interrupts a transition, it starts from the current
-  interpolated framing, not the previous target.
-- List instructions in strict scene/time order; duplicate anchors are errors.
-- Cuts remap retained anchors to edited time. An anchor inside a removed
-  interval is an error: the agent must reposition it explicitly.
-- Narration holds in earlier scenes shift later camera anchors automatically.
-  Camera instructions do not extend the video; unfinished transitions stop
-  at the end of the export.
-- Timing is evaluated at 30 fps. Source footage and captions remain separate:
-  captions never zoom with the browser.
+## Cutting loading intervals
 
-**Migration:** remove the old `:zoom?` field and scene-level `:focus` maps.
-They now produce actionable validation errors rather than silently changing
-behavior. Put zoom/focus choices in `:camera` instead. Existing source
-recordings remain reusable; captured legacy focus metadata is only a hint.
-
-```sh
-clojure -M:run render revised.edn work/capture-v1/capture.edn work/render-v2
-```
-
-Changing actions, adding/removing scenes, or reordering scenes requires a new
-capture. The renderer rejects mismatched actions rather than suggesting they
-ran. Capture manifests are trusted local data, not tamper-proof evidence.
-
-## Agent-directed cuts
-
-Add `:cuts` to an existing scene, then render again from the original capture:
+After inspecting the captured footage, add cuts to an **edit scene**:
 
 ```clojure
-{:id "save"
- :narration "Save the project. The updated result appears."
- :cuts [{:start 1.2 :end 4.8}]
- ;; Keep the originally captured :actions unchanged.
- :actions [...]}
+{:id "short-save"
+ :source "save"
+ :narration "Save the project."
+ :cuts [{:start 0.5 :end 2.5}]}
 ```
 
-This removes footage from 1.2 seconds (inclusive) to 4.8 seconds (exclusive),
-**relative to that scene's captured start**, not the complete recording or
-edited output. The tool never chooses cuts automatically.
+These example times require footage longer than 2.5 seconds. Cuts remove
+`start` inclusive to `end` exclusive in original source-scene seconds.
+Intervals must be ordered, nonoverlapping, remove at least one frame, and
+preserve the final source frame. Boundaries snap forward to the 30fps grid.
+Each reused instance can choose different cuts without modifying the source.
 
-- Inspect source footage to choose boundaries. Absolute recording timestamps
-  equal scene `:start` in `capture.edn` plus the cut's scene-relative time.
-  Diagnostic action-event clocks are not exact encoded-frame timestamps.
-- List cuts in ascending order without overlap. Boundaries snap forward to
-  the 30 fps frame grid; each cut must remove at least one frame.
-- Preserve the final scene frame: cuts ending at/beyond the scene end are
-  rejected. This keeps the original checkpoint available for narration holds.
-- Retained footage plays at normal speed, joined by hard cuts.
-- Narration remains continuous; cuts affect browser footage, not speech.
-  The planner recalculates scene lengths, subsequent scene starts, and
-  sentence-caption timing from measured audio. It does not align spoken
-  claims to particular browser actions; the agent must review that alignment.
-- If narration outlasts shortened footage, the final checkpoint holds longer.
-  **A cut may therefore not shorten the final video.** Shorten narration too
-  when necessary. Without a checkpoint, excess narration still fails.
-- Raw footage stays intact. Remove or revise cuts freely without recapture.
+Cuts remove video, not speech. Long narration may replace removed loading
+with a final-frame hold rather than shortening the output. Shorten narration
+as well if you need a shorter video. There is no automatic loading detection.
 
-## Timing and presentation
+## Timing, media, and global settings
 
-- Default 1920×1200, 30 fps H.264/AAC capture and export; at most 62 scenes.
-  Set `:viewport {:width 1920 :height 1080}` for 16:9, for example.
-  Dimensions must be even integers: width 640–2560, height 400–1600.
-  Changing an explicit viewport requires recapture, not upscaling old footage.
-  Older projects without `:viewport` still render at their recorded dimensions.
-- The browser viewport includes an extra 16px synchronization strip. Encoded
-  color markers establish scene boundaries; the renderer crops the strip out.
-  This avoids freezing stale frames because browser commands and encoded
-  frames arrive at different times.
-- Cursor movement and click pulses are temporary pointer-transparent overlays
-  captured in footage. They do not alter business values. **Cursor styling is
-  baked in**, unlike editable zooms, captions, and narration.
-- Camera movement is off by default. The explicit `:camera` track controls
-  transitions and persistent framing. Enabled camera transforms
-  use a 4× full-chroma working image to reduce pixel-rounding jitter; output
-  stays at the capture dimensions. This uses more rendering time and memory.
-- Spoken text splits only at sentence boundaries, never at caption word counts.
-  Each complete sentence has a measured Kokoro WAV, preserving within-sentence
-  prosody. Its verbatim caption wraps visually into at most two lines. Shorten
-  an oversized sentence rather than splitting its audio arbitrarily. This is
-  sentence-level synchronization, not word-level forced alignment.
-- Voice defaults: `af_heart`, generation speed 0.95, then pitch-preserving
-  `atempo=1.25`.
-- Longer narration holds the scene's final frame only if capture recorded a
-  final checkpoint. Holds do not add an on-screen label. Actions retain their
-  original speed. Without a checkpoint, shorten narration or recapture.
-- Captions render after zoom, scale proportionally with the viewport, and
-  stay above player controls.
-  There is no automatic UI collision avoidance; review framing and caption
-  clearance. There is no automatic wait trimming or sensitive-data masking.
+- Capture defaults to 1920×1200. Viewport width must be an even integer between
+  640 and 2560; height between 400 and 1600. Capture supports at most 62 scenes.
+- Omit viewport from the edit to use recorded dimensions. An explicitly
+  different viewport is rejected: changing source resolution needs recapture.
+- The renderer exports 30fps H.264/AAC. Encoded markers define capture scene
+  boundaries; the extra 16px marker strip is cropped from output.
+- Pointer/click overlays are baked into footage, not separately editable.
+- Each edit scene's narration starts with that scene. Kokoro synthesizes full
+  sentences; captions follow measured sentence audio. Captions wrap to at most
+  two lines. Shorten long sentences rather than splitting speech arbitrarily.
+- Footage plays at normal speed. When narration needs extra time, the final
+  frame holds, but only if the source scene ended with a checkpoint. Otherwise
+  rendering fails. There is no pause label. Longer footage continues after speech.
+- Kokoro defaults to loopback port 8880 and voice `af_heart`. Speech uses speed
+  0.95 followed by pitch-preserving `atempo=1.25`. Rendering reuses a healthy
+  service or runs an explicitly configured, preinstalled `:kokoro :command`.
+  Do not configure a daemonizing launcher. There is no cloud fallback.
+- Files, manifests, selectors, and narration can contain private data. Nothing
+  is automatically redacted. Keep source files private and review the final MP4.
+
+## Version 1 compatibility and migration
+
+Existing `:version 1` projects, capture manifests, and examples still work.
+Version 1 combines narration and actions in each scene and uses a top-level
+`:camera` track with `:at {:scene "id" :time seconds}`. It retains its strict
+scene-order and action-match checks; use version 2 for reordering/reuse.
+
+To migrate without reshooting:
+
+1. Create a version-2 edit with scene IDs, narration, and cuts from the old
+   project. Add `:source` equal to each original recorded scene ID.
+2. Move camera instructions into their matching edit scenes, replacing
+   `:at {:scene "id" :time t}` with `:time t`. Preserve instruction order.
+3. Remove actions and focus selectors from the edit. Render it against the
+   **existing** `capture.edn`; capture manifests remain version 1.
+4. For future shoots, put original IDs, actions, and optional focus selectors
+   into a separate version-2 `:capture {:scenes [...]}` recipe. Move browser
+   and viewport settings there; keep Kokoro settings in the edit.
+
+Do not simply change the version number. Mixed layouts are rejected. Earlier
+`:zoom?` and scene `:focus` schemas are still unsupported.

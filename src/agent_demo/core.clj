@@ -26,7 +26,7 @@
 (def operations #{:goto :click :fill :hover :wait-visible :wait-text :checkpoint})
 (declare scene-cuts)
 
-(defn validate-project [p]
+(defn validate-v1 [p]
   (require! (= 1 (:version p)) "Project :version must be 1" {})
   (require! (valid-viewport? (get p :viewport default-viewport))
             "Viewport needs even integer dimensions: width 640–2560, height 400–1600" {})
@@ -34,6 +34,8 @@
   (require! (= (count (:scenes p)) (count (set (map :id (:scenes p)))))
             "Scene IDs must be unique" {})
   (doseq [s (:scenes p)]
+    (require! (not (contains? s :camera))
+              "Scene-local camera requires a version-2 edit; version 1 uses top-level :camera" {})
     (require! (and (string? (:id s)) (re-matches #"[a-zA-Z0-9_-]+" (:id s)))
               "Scene :id must be a safe filename" {:scene (:id s)})
     (require! (and (string? (:narration s)) (not (str/blank? (:narration s))))
@@ -51,6 +53,75 @@
       (when (#{:fill :wait-text} (:op a))
         (require! (string? (:text a)) "Action requires :text" {}))))
   (camera/validate p))
+
+(defn edit-view
+  "Flatten scene-local camera instructions for the existing camera compiler."
+  [project]
+  (if (= 2 (:version project))
+    (assoc project :camera
+           (vec (mapcat (fn [scene]
+                          (map #(-> % (dissoc :time)
+                                    (assoc :at {:scene (:id scene) :time (:time %)}))
+                               (:camera scene)))
+                        (:scenes project))))
+    project))
+
+(defn validate-edit [project]
+  (if (= 1 (:version project))
+    (validate-v1 project)
+    (do
+      (require! (= 2 (:version project)) "Project :version must be 1 or 2" {})
+      (require! (not-any? #(contains? project %) [:camera :zoom?])
+                "Version 2 camera instructions belong inside edit scenes" {})
+      (doseq [scene (:scenes project)]
+        (require! (and (string? (:source scene))
+                       (re-matches #"[a-zA-Z0-9_-]+" (:source scene)))
+                  "Each edit scene needs a :source recorded-scene ID" {})
+        (require! (not-any? #(contains? scene %) [:actions :focus-selector])
+                  "Browser actions and focus selectors belong in :capture :scenes, not edit scenes" {})
+        (require! (vector? (get scene :camera [])) "Scene :camera must be a vector" {})
+        (doseq [instruction (:camera scene)]
+          (require! (not (contains? instruction :at))
+                    "Scene camera instructions use :time, not :at" {})))
+      (validate-v1 (-> (edit-view project)
+                       (assoc :version 1)
+                       (update :scenes #(mapv (fn [scene] (assoc (dissoc scene :camera) :actions [])) %))))
+      project)))
+
+(defn capture-project
+  "Extract only the shooting recipe. Rendering never calls this function."
+  [project]
+  (if (= 1 (:version project))
+    (validate-v1 project)
+    (do
+      (require! (= 2 (:version project)) "Project :version must be 1 or 2" {})
+      (let [scenes (get-in project [:capture :scenes])]
+        (require! (and (vector? scenes) (seq scenes)) "Capture requires a nonempty :capture :scenes vector" {})
+        (doseq [scene scenes]
+          (require! (not-any? #(contains? scene %) [:narration :cuts :camera :focus])
+                    "Capture scenes contain actions, not narration or editing instructions" {}))
+        (validate-v1 (-> (select-keys project [:viewport :browser])
+                         (assoc :version 1
+                                :scenes (mapv #(assoc % :narration "Source footage.") scenes))))))))
+
+(defn validate-project [project]
+  (if (= 1 (:version project))
+    (validate-v1 project)
+    (do
+      (require! (= 2 (:version project)) "Project :version must be 1 or 2" {})
+      (require! (or (contains? project :capture) (contains? project :scenes))
+                "Version 2 needs a capture recipe, an edit, or both" {})
+      (require! (not-any? #(contains? project %) [:camera :zoom?])
+                "Version 2 camera instructions belong inside edit scenes" {})
+      (when (contains? project :capture) (capture-project project))
+      (when (contains? project :scenes) (validate-edit project))
+      project)))
+
+(defn recorded-scenes [project capture]
+  (if (= 2 (:version project))
+    (let [by-id (into {} (map (juxt :id identity) (:scenes capture)))]
+      (mapv #(get by-id (:source %)) (:scenes project)))
+    (:scenes capture)))
 
 (defn cues [text]
   ;; A synthesis boundary is audible. Never split a sentence merely to fit a
@@ -99,26 +170,34 @@
   (when-let [viewport (:viewport project)]
     (require! (= viewport (select-keys capture [:width :height]))
               "Viewport changed; recapture to obtain real source pixels" {}))
-  (require! (= (mapv :id (:scenes project)) (mapv :id (:scenes capture)))
-            "Project scenes do not match capture; recapture after adding/reordering scenes" {})
-  (doseq [[scene recorded] (map vector (:scenes project) (:scenes capture))]
-    (require! (= (:actions scene) (:actions recorded))
-              "Browser actions changed; recapture or restore the original actions" {:scene (:id scene)})
-    (require! (and (every? finite-number? ((juxt :start :end) recorded))
+  (require! (and (vector? (:scenes capture)) (seq (:scenes capture))
+                 (= (count (:scenes capture)) (count (set (map :id (:scenes capture))))))
+            "Capture must contain unique recorded scene IDs" {})
+  (doseq [recorded (:scenes capture)]
+    (require! (and (string? (:id recorded)) (re-matches #"[a-zA-Z0-9_-]+" (:id recorded))
+                   (every? finite-number? ((juxt :start :end) recorded))
                    (<= 0 (:start recorded)) (< (:start recorded) (:end recorded)))
-              "Captured scene has invalid bounds" {:scene (:id scene)})
+              "Captured scene has invalid ID or bounds" {}))
+  (when (= 1 (:version project))
+    (require! (= (mapv :id (:scenes project)) (mapv :id (:scenes capture)))
+              "Project scenes do not match capture; recapture after adding/reordering scenes" {}))
+  (doseq [[scene recorded] (map vector (:scenes project) (recorded-scenes project capture))]
+    (require! (some? recorded) "Edit scene references an unknown recorded :source ID" {})
+    (when (= 1 (:version project))
+      (require! (= (:actions scene) (:actions recorded))
+                "Browser actions changed; recapture or restore the original actions" {:scene (:id scene)}))
     (let [duration (- (:end recorded) (:start recorded))
           cuts (scene-cuts scene duration)]
       ;; Reject invalid anchors before rendering invokes speech synthesis.
-      (doseq [instruction (:camera project) :when (= (:id scene) (get-in instruction [:at :scene]))]
+      (doseq [instruction (:camera (edit-view project)) :when (= (:id scene) (get-in instruction [:at :scene]))]
         (camera/source-time->edited {:id (:id scene) :start 0 :source-duration duration :cuts cuts}
                                    (get-in instruction [:at :time])))))
   capture)
 
 (defn plan [project capture speech]
-  (validate-project project)
+  (validate-edit project)
   (validate-capture project capture)
-  (camera/attach-track project
+  (camera/attach-track (edit-view project)
    (:segments
    (reduce
     (fn [{:keys [time segments]} [scene recorded]]
@@ -138,7 +217,7 @@
                   {:scene (:id scene) :extra-seconds hold})
         {:time (+ time total)
          :segments (conj segments
-                         {:id (:id scene) :source-start (:start recorded)
+                         {:id (:id scene) :source-id (:id recorded) :source-start (:start recorded)
                           :source-duration source-duration :cuts cuts :footage-duration duration
                           :hold hold :duration total :start time
                           :cues (loop [remaining audio t 0 out []]
@@ -147,4 +226,4 @@
                                            (conj out (assoc c :start t :end (+ t (:duration c)))))
                                     out))})}))
     {:time 0 :segments []}
-    (map vector (:scenes project) (:scenes capture))))))
+    (map vector (:scenes project) (recorded-scenes project capture))))))

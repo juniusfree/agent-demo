@@ -1,0 +1,21 @@
+{:version 2
+ :kokoro {:endpoint "http://127.0.0.1:8880" :voice "af_heart"}
+ ;; Show the result first, explain naming, then replay the result.
+ ;; This omits the visibility footage without skipping its captured actions.
+ :scenes
+ [{:id "result-first"
+   :source "save"
+   :narration "Here is the saved project."
+   :camera [{:time 0 :zoom 1 :transition 0}]}
+  {:id "naming"
+   :source "name"
+   :narration "Give the project a clear name so reviewers can identify it."
+   :camera [{:time 0 :zoom 1.12
+             :focus {:x 0.55 :y 0.52} :transition 0.5}]
+   ;; Add measured loading cuts after reviewing the source footage:
+   ;; :cuts [{:start 0.5 :end 1.0}]
+   }
+  {:id "result-again"
+   :source "save"
+   :narration "The saved name and team access are ready."
+   :camera [{:time 0 :zoom 1 :transition 0.5}]}]}

@@ -1,0 +1,19 @@
+{:version 2
+ :viewport {:width 1920 :height 1200}
+ ;; Run auth with this file if your real app requires sign-in.
+ ;; :browser {:storage-state ".auth/demo-v1/storage-state.json"}
+ :capture
+ {:scenes
+  [{:id "name"
+    :actions [{:op :goto :url "http://127.0.0.1:8799"}
+              {:op :fill :selector "#name" :text "Reviewer demo"}
+              {:op :checkpoint}]}
+   {:id "visibility"
+    :actions [{:op :click :selector "#options"}
+              {:op :wait-visible :selector "#team"}
+              {:op :click :selector "#team"}
+              {:op :checkpoint}]}
+   {:id "save"
+    :actions [{:op :click :selector "#save"}
+              {:op :wait-text :selector "#result" :text "Saved Reviewer demo — Team"}
+              {:op :checkpoint}]}]}}

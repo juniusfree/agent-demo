@@ -87,11 +87,11 @@
   (let [server (main/fixture! 0)
         root (.toFile (java.nio.file.Files/createTempDirectory
                        "agent-demo-auth-" (make-array java.nio.file.attribute.FileAttribute 0)))
-        project {:version 1
+        project {:version 2
                  ;; Setup must ignore any old session and begin isolated.
                  :browser {:storage-state "/nonexistent/old-session.json"}
-                 :scenes [{:id "demo" :narration "A demo."
-                           :actions [{:op :goto :url (str "http://127.0.0.1:" (.getPort (.getAddress server)))}]}]}
+                 :capture {:scenes [{:id "demo"
+                                     :actions [{:op :goto :url (str "http://127.0.0.1:" (.getPort (.getAddress server)))}]}]}}
         phases (atom [])]
     (try
       (let [out (str root "/session")
