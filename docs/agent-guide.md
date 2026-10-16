@@ -209,11 +209,18 @@ signing in can create server sessions and audit events.
 4. Use explicit waits for visible completion, not guessed save delays.
 5. End a captured scene with `:checkpoint` only when its final frame is safe to hold.
 6. Capture once. Review the real results before narrating success.
-7. Reorder, omit, or repeat source scenes and edit narration, cuts, or local camera
-   settings, then render again from the same capture. Do not run `capture` for
-   presentation-only changes. Reused clips need distinct edit IDs.
-8. Inspect final frames and listen before sharing. The tool does not judge
-   whether narration is true.
+7. **Cut waiting, not context.** Preserve the viewer's sense of where they are
+   and how they got there. Show navigation clicks, page changes, and meaningful
+   state transitions. Cut only idle waiting after the action is clear, and keep
+   the resulting state visible. Do not skip steps or reorder footage by default;
+   do so only when requested. Judge cuts by the context they remove, not length:
+   a long loading wait may be safe to cut, while a brief navigation step may not.
+8. Edit narration, cuts, or local camera settings, then render again from the
+   same capture. Do not run `capture` for presentation-only changes. When a
+   requested edit reuses a source scene, give each instance a distinct edit ID.
+9. Watch the full edit and listen before sharing. Check that viewers can follow
+   each transition without having to guess what happened between scenes. The
+   tool does not judge whether narration is true.
 
 This version runs a **batch of agent-authored actions**. The agent chooses
 everything; the adapter does not plan or explore. Interactive per-action CLI
