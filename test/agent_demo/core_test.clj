@@ -20,6 +20,22 @@
                    (assoc-in project [:scenes 0 :focus] {:x ##NaN :y 0.5 :zoom 1.5})]]
     (is (thrown? clojure.lang.ExceptionInfo (c/validate-project invalid)))))
 
+(deftest configurable-browser-timeout
+  (is (= 15000 (c/browser-timeout-ms project)))
+  (doseq [timeout [1 60000 600000]]
+    (let [p (assoc project :browser {:timeout-ms timeout})]
+      (is (= p (c/validate-project p)))
+      (is (= timeout (c/browser-timeout-ms p)))
+      (is (= timeout (c/browser-timeout-ms
+                       (c/capture-project {:version 2 :browser {:timeout-ms timeout}
+                                           :capture {:scenes [{:id "a" :actions []}]}}))))))
+  (doseq [timeout [0 -1 nil "60000" 1.5 ##Inf ##NaN 600001]]
+    (is (thrown? clojure.lang.ExceptionInfo
+          (c/validate-project (assoc project :browser {:timeout-ms timeout}))))
+    (is (thrown? clojure.lang.ExceptionInfo
+          (c/capture-project {:version 2 :browser {:timeout-ms timeout}
+                              :capture {:scenes [{:id "a" :actions []}]}})))))
+
 (deftest configurable-viewport
   (is (= {:width 1920 :height 1200} c/default-viewport))
   (doseq [viewport [{:width 1920 :height 1200} {:width 1280 :height 800}

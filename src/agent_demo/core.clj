@@ -23,11 +23,18 @@
                 (some? (.getHost uri)) (nil? (.getUserInfo uri)))))
     (catch IllegalArgumentException _ false)))
 
+(defn browser-timeout-ms [project]
+  (let [timeout (get-in project [:browser :timeout-ms] 15000)]
+    (require! (and (integer? timeout) (<= 1 timeout 600000))
+              "Browser :timeout-ms must be an integer from 1 to 600000 (10 minutes)" {})
+    timeout))
+
 (def operations #{:goto :click :fill :hover :wait-visible :wait-text :checkpoint})
 (declare scene-cuts)
 
 (defn validate-v1 [p]
   (require! (= 1 (:version p)) "Project :version must be 1" {})
+  (browser-timeout-ms p)
   (require! (valid-viewport? (get p :viewport default-viewport))
             "Viewport needs even integer dimensions: width 640–2560, height 400–1600" {})
   (require! (and (vector? (:scenes p)) (seq (:scenes p))) "Provide a nonempty :scenes vector" {})

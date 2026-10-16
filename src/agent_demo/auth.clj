@@ -50,6 +50,7 @@
                    (with-open [context (.newContext browser (doto (Browser$NewContextOptions.)
                                                              (.setAcceptDownloads false)))]
                      (let [page (.newPage context)]
+                       (capture/configure-timeouts! page project)
                        (.navigate page url)
                        (confirm-fn :login page)
                        (.storageState context state-options)))]
@@ -59,6 +60,7 @@
                                                          (.setAcceptDownloads false)
                                                          (.setStorageState state)))]
                  (let [page (.newPage context)]
+                   (capture/configure-timeouts! page project)
                    (.navigate page url)
                    (confirm-fn :verify page)
                    (save-state! (str out "/storage-state.json")

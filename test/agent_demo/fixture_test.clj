@@ -135,6 +135,37 @@
         (.stop server 0)
         (doseq [file (reverse (file-seq root))] (io/delete-file file))))))
 
+(deftest configurable-completion-waits
+  (with-open [pw (Playwright/create (doto (Playwright$CreateOptions.)
+                                    (.setEnv {"PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD" "1"})))
+              browser (.launch (.chromium pw) (doto (BrowserType$LaunchOptions.)
+                                               (.setChannel "chrome") (.setHeadless true)))]
+    (let [page (.newPage browser)
+          events (atom [])
+          position (atom {:x 0 :y 0})
+          delayed-result! (fn [delay]
+                            (.setContent page "<p id='result' hidden>Loading</p>")
+                            (.evaluate page
+                              "delay => { const result = document.querySelector('#result'); setTimeout(() => { result.textContent = 'Ready'; result.hidden = false; }, delay); }"
+                              (double delay)))]
+      ;; Reproduce the reported boundary with real asynchronous browser work.
+      (capture/configure-timeouts! page {})
+      (delayed-result! 16000)
+      (is (thrown? com.microsoft.playwright.TimeoutError
+            (capture/action! page {:op :wait-text :selector "#result" :text "Ready"}
+                             position events (capture/now))))
+      (capture/configure-timeouts! page {:browser {:timeout-ms 20000}})
+      (delayed-result! 16000)
+      (capture/action! page {:op :wait-text :selector "#result" :text "Ready"}
+                       position events (capture/now))
+      (is (= "Ready" (.textContent (.locator page "#result"))))
+      ;; Visibility waits use the same setting, rather than a separate 15s cap.
+      (capture/configure-timeouts! page {:browser {:timeout-ms 2000}})
+      (delayed-result! 300)
+      (capture/action! page {:op :wait-visible :selector "#result"}
+                       position events (capture/now))
+      (is (.isVisible (.locator page "#result"))))))
+
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests 'agent-demo.fixture-test)]
     (when (pos? (+ fail error)) (System/exit 1))))

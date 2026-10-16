@@ -17,8 +17,10 @@ Both may use the same `:version 2` schema. A combined file with both
 ```clojure
 {:version 2
  :viewport {:width 1920 :height 1200}
- ;; Optional private session from the auth command:
- ;; :browser {:storage-state ".auth/demo-v1/storage-state.json"}
+ :browser {:timeout-ms 60000
+           ;; Optional private session from the auth command:
+           ;; :storage-state ".auth/demo-v1/storage-state.json"
+           }
  :capture
  {:scenes
   [{:id "name"
@@ -109,8 +111,17 @@ Review the story so the new order and narration do not misrepresent events.
 | `:checkpoint` | none | Mark the final screen as safe to hold |
 
 The first capture scene must start with `:goto`. Use unique CSS selectors.
-Actions/waits time out after 15 seconds. Use a disposable, authorized fixture;
-isolation is not authorization to change production data.
+Browser actions, completion waits, and navigation default to 15 seconds.
+Set `:browser {:timeout-ms 60000}` in the shooting recipe for slow pages.
+The value must be an integer from 1 to 600000 milliseconds (10 minutes);
+zero cannot disable timeouts. This works in versions 1 and 2. It also applies
+to auth setup navigation, but does not time-limit the user's manual sign-in.
+It is a maximum wait, not a sleep: operations finish as soon as they succeed.
+Longer capture waits do not alter playback speed; remove measured loading
+intervals with edit-scene cuts afterward.
+
+Use a disposable, authorized fixture; isolation is not authorization to change
+production data.
 
 Installed Chrome is the default. Set `:browser :executable` to use another
 trusted Chromium installation. Sign in through the [auth workflow](agent-guide.md#authentication-setup),

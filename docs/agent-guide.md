@@ -174,7 +174,8 @@ or reuse an existing `:storage-state`. Use a dedicated demo account.
    hostname and port; `localhost` and `127.0.0.1` are different origins.
    Review the result before sharing.
 
-The CLI also honors `:browser :executable` during setup. All paths are
+The CLI also honors `:browser :executable` and `:browser :timeout-ms` during
+setup navigation. The timeout does not limit the user's manual sign-in. All paths are
 relative to the command's working directory unless absolute. Each setup
 requires a new output directory; expired sessions require setup again with
 a new directory and an updated project path. Nothing overwrites old sessions.
@@ -228,6 +229,7 @@ instructions, cuts, and presentation timing.
 | --- | --- |
 | Browser or recording helper missing | Verify Chrome or the configured executable; install only the documented recording helper after download approval. |
 | Kokoro unavailable | Check the loopback endpoint or request the actual foreground launcher. Do not invent a command or substitute cloud speech. |
+| Completion takes longer than 15 seconds | Set `:browser :timeout-ms` in the shooting recipe, for example `60000`. Capture the completed state, then cut measured loading intervals from the edit. Allowed range: 1–600000 ms. |
 | Isolated browser shows sign-in | Run `auth` in an interactive terminal, verify the transferred session, and set `:browser :storage-state`. Use a new auth directory for expired sessions. |
 | Selector fails or times out | Inspect the real UI and fix the shooting recipe with a unique selector and an explicit completion wait. Capture new footage only when the browser actions must change. |
 | Unknown recorded source ID | Match edit `:source` to an ID in the supplied capture manifest, not an edit-instance ID. |

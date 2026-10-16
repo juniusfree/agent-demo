@@ -1,7 +1,9 @@
 {:version 2
  :viewport {:width 1920 :height 1200}
- ;; Run auth with this file if your real app requires sign-in.
- ;; :browser {:storage-state ".auth/demo-v1/storage-state.json"}
+ :browser {:timeout-ms 60000
+           ;; Run auth with this file if your real app requires sign-in.
+           ;; :storage-state ".auth/demo-v1/storage-state.json"
+           }
  :capture
  {:scenes
   [{:id "name"

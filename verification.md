@@ -206,6 +206,19 @@
 - Existing zoom and cut regressions pass. Full-motion/listening review of the
   new example edit remains a human check; this is not a multi-track editor.
 
+## Configurable browser completion timeout
+
+- Capture/navigation now use `:browser :timeout-ms`, default 15000,
+  accepting integer milliseconds from 1 through 600000. Auth navigation
+  honors the setting without imposing a deadline on manual login.
+- Real-Chrome regression reproduced a 16-second asynchronous result failing
+  under the default 15-second limit, then succeeding with a 20-second limit.
+  A visibility-wait test confirms the shared timeout policy.
+- 270 unit assertions and 46 real-browser assertions pass, including version-1
+  and version-2 settings, invalid values, and the existing auth/fixture tests.
+- The slow real application from the report was not available in this checkout;
+  its recording still needs to be retried with the configured timeout.
+
 ## Limits of this evidence
 
 - Speech was generated and measured, but not listened to during implementation.

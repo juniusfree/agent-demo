@@ -7,6 +7,12 @@
 
 (defn now [] (/ (System/nanoTime) 1e9))
 (defn path [s] (Paths/get (str s) (make-array String 0)))
+(defn configure-timeouts! [page project]
+  (let [timeout (double (core/browser-timeout-ms project))]
+    (.setDefaultTimeout page timeout)
+    (.setDefaultNavigationTimeout page timeout))
+  page)
+
 (defn install-pointer! [page]
   (.evaluate page (slurp (io/resource "pointer.js"))))
 (defn target! [page selector]
@@ -103,7 +109,7 @@
                   context (.newContext browser options)]
               (try
                 (let [page (.newPage context)
-                      _ (.setDefaultTimeout page 15000)
+                      _ (configure-timeouts! page project)
                       _ (.navigate page (get-in project [:scenes 0 :actions 0 :url]))
                       _ (install-pointer! page)
                       _ (marker! page 1)
