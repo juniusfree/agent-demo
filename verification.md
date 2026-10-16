@@ -108,6 +108,22 @@
   No service was installed or restarted. Cached speech enabled the real-footage
   render above; this is not a fresh live speech-service acceptance run.
 
+## Modern fixture and inline README video
+
+- Redesigned the bundled fixture as Forma, a responsive project settings UI
+  with a workspace sidebar, live preview, accessible access picker, and
+  asynchronous save feedback. Existing capture selectors and success text
+  remain compatible.
+- `work/acceptance-forma-v1/` passed real browser capture, marker regression,
+  two renders, media decoding, duration checks, and unchanged-source checks.
+  Narration used cached sentence WAVs because Kokoro was unavailable; the
+  acceptance manifest explicitly records that fact.
+- Inspected sampled opening and result frames. Published the revised demo as
+  a GitHub attachment and verified that GitHub's Markdown renderer emits a
+  video element with playback controls.
+- The README uses the stable, standalone attachment URL, not a release
+  download URL or a temporary signed media URL.
+
 ## Limits of this evidence
 
 - Speech was generated and measured, but not listened to during implementation.

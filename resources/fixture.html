@@ -1,9 +1,154 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Agent Demo Fixture</title>
-<style>body{font:24px system-ui;background:#eef2f7;color:#17253c;padding:80px}main{background:white;padding:48px;border-radius:20px;max-width:850px}h1{margin-top:0}input,button,select{font:inherit;padding:12px;margin:12px 8px 12px 0}button{background:#255ae8;color:white;border:0;border-radius:8px}#result{padding:20px;background:#e2f5e8}label{display:block}#menu{padding:20px;border:1px solid #ccd;max-width:350px}</style></head>
-<body><main><h1>Review-ready project settings</h1><p>Edit a project, choose visibility, and save.</p>
-<label>Project name <input id="name" value="Untitled project"></label>
-<button id="options" onclick="document.querySelector('#menu').hidden=!document.querySelector('#menu').hidden">Visibility options</button>
-<div id="menu" hidden><button id="team" onclick="document.querySelector('#visibility').textContent='Team';document.querySelector('#menu').hidden=true">Team access</button></div>
-<p>Visibility: <strong id="visibility">Private</strong></p>
-<button id="save" onclick="this.disabled=true;document.querySelector('#result').textContent='Saving…';setTimeout(()=>{document.querySelector('#result').textContent='Saved '+document.querySelector('#name').value+' — '+document.querySelector('#visibility').textContent;this.disabled=false},1000)">Save project</button>
-<p id="result" role="status">No changes saved yet.</p></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forma — Project settings</title>
+  <style>
+    :root { color-scheme: light; --ink: #162b29; --muted: #71817b; --line: #e3e9e3; --green: #224d3d; --paper: #f5f7f2; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--paper); }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: wait; opacity: .65; }
+    button:focus-visible, a:focus-visible { outline: 3px solid #89bd9d; outline-offset: 4px; }
+    .shell { display: grid; grid-template-columns: 238px 1fr; min-height: 100vh; }
+    aside { background: #fcfdf9; border-right: 1px solid var(--line); padding: 38px 24px; display: flex; flex-direction: column; gap: 48px; }
+    .brand { font-size: 27px; font-weight: 750; letter-spacing: -1.2px; display: flex; align-items: center; gap: 12px; }
+    .mark { display: grid; place-items: center; width: 35px; height: 35px; background: var(--green); color: #dcf6bd; border-radius: 11px; font-size: 27px; }
+    .workspace { padding: 15px; border: 1px solid var(--line); border-radius: 13px; font-weight: 650; background: white; }
+    .workspace small { display: block; color: var(--muted); font-weight: 400; margin-top: 4px; }
+    .nav-label, .eyebrow { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: 750; color: var(--muted); }
+    nav { display: grid; gap: 9px; margin-top: 16px; }
+    nav span, nav a { padding: 12px 15px; color: #77827c; text-decoration: none; border-radius: 9px; }
+    nav a { background: #e8efe3; color: var(--green); font-weight: 650; }
+    .sidebar-note { margin-top: auto; padding: 18px 12px; font-size: 13px; color: var(--muted); }
+    .sidebar-note b { display: block; color: var(--ink); margin-bottom: 5px; }
+    .main { min-width: 0; }
+    header { height: 86px; padding: 0 60px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: #fcfdf9; }
+    .crumb { color: var(--muted); font-size: 14px; }
+    .crumb b { color: var(--ink); font-weight: 500; }
+    .account { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
+    .avatar { border: 3px solid white; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #e6ecd7; color: #456049; font-size: 12px; font-weight: 700; }
+    main { max-width: 1400px; margin: auto; padding: 54px 64px 150px; }
+    .page-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 36px; }
+    h1 { font-size: 42px; letter-spacing: -1.8px; line-height: 1.15; margin: 9px 0 12px; font-weight: 650; }
+    .subtitle { color: var(--muted); margin: 0; font-size: 16px; }
+    .badge { font-size: 12px; padding: 7px 12px; border-radius: 30px; color: #526958; background: #e8eedf; white-space: nowrap; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(290px, 1fr); gap: 26px; align-items: start; }
+    .card { border: 1px solid var(--line); border-radius: 18px; background: white; box-shadow: 0 4px 16px #173e2910; }
+    .card-heading { padding: 27px 30px; border-bottom: 1px solid var(--line); }
+    h2 { font-size: 19px; font-weight: 650; letter-spacing: -.4px; margin: 0 0 5px; }
+    .hint { font-size: 13px; color: var(--muted); margin: 0; }
+    fieldset { border: 0; margin: 0; padding: 29px 30px 24px; min-width: 0; }
+    label, .field-label { display: block; font-size: 14px; font-weight: 650; margin: 0 0 9px; }
+    input { width: 100%; border: 1px solid #d4ded4; border-radius: 9px; background: #fcfdfb; color: var(--ink); padding: 13px 15px; outline: none; transition: box-shadow .15s, border-color .15s; }
+    input:focus { border-color: #6a9c7b; box-shadow: 0 0 0 4px #e9f2e6; background: white; }
+    .field-help { font-size: 12px; color: var(--muted); margin: 9px 0 27px; }
+    .access { position: relative; }
+    #options { width: 100%; display: flex; align-items: center; gap: 13px; padding: 14px; border: 1px solid #d4ded4; background: white; border-radius: 10px; text-align: left; color: var(--ink); }
+    .access-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; background: #f0f3ec; color: #52745b; font-size: 20px; }
+    .access-text { flex: 1; }
+    #visibility { font-size: 14px; }
+    #access-description { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+    #menu { position: absolute; z-index: 5; top: calc(100% + 8px); left: 0; right: 0; border: 1px solid var(--line); border-radius: 12px; background: white; padding: 6px; box-shadow: 0 15px 38px #162b2925; }
+    #menu[hidden] { display: none; }
+    #menu button { display: block; width: 100%; padding: 12px; border: 0; border-radius: 7px; text-align: left; background: white; color: var(--ink); }
+    #menu button:hover, #menu button:focus-visible { background: #eff5e9; }
+    #menu small { display: block; color: var(--muted); margin-top: 2px; }
+    .save-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 30px; background: #fafbf7; border-top: 1px solid var(--line); border-radius: 0 0 18px 18px; }
+    #save { padding: 12px 20px; border: 1px solid var(--green); border-radius: 9px; background: var(--green); color: white; font-size: 14px; font-weight: 600; box-shadow: 0 2px 4px #224d3d20; }
+    #save:hover { background: #173b2e; }
+    #change-status { font-size: 12px; color: var(--muted); }
+    #result { min-height: 46px; margin: 16px 0 0; padding: 13px 18px; font-size: 13px; border-radius: 10px; color: #66786b; background: #ecf0e7; }
+    #result[data-saved="true"] { color: #245339; background: #e1efdb; }
+    .preview { overflow: hidden; }
+    .cover { height: 155px; position: relative; overflow: hidden; background: #173d32; }
+    .cover::before, .cover::after { content: ""; position: absolute; width: 260px; height: 260px; border-radius: 50%; border: 1px solid #b1db9560; top: -140px; right: -50px; box-shadow: 0 0 0 32px #b1db9512, 0 0 0 65px #b1db950c, 0 0 0 100px #b1db9508; }
+    .cover::after { width: 90px; height: 90px; top: 90px; right: 190px; background: #c6df9f; border: none; box-shadow: none; }
+    .cover-label { position: absolute; top: 22px; left: 25px; color: #dceccf; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
+    .preview-body { padding: 25px; }
+    .preview h2 { font-size: 24px; letter-spacing: -.8px; overflow-wrap: anywhere; }
+    .preview-description { color: var(--muted); font-size: 13px; margin: 11px 0 22px; }
+    .preview-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 18px; }
+    .members { display: flex; }
+    .members .avatar + .avatar { margin-left: -9px; background: #e8e4d9; }
+    .note { padding: 25px 6px; display: flex; gap: 13px; }
+    .note-icon { color: #71916c; font-size: 22px; }
+    .note b { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+    .note p { margin: 0; color: var(--muted); font-size: 12px; max-width: 300px; }
+    @media (max-width: 1400px) { .shell { grid-template-columns: 205px 1fr; } main { padding: 34px 36px 120px; } header { padding: 0 36px; height: 70px; } h1 { font-size: 34px; } .grid { gap: 20px; } .card-heading, fieldset { padding: 22px; } .save-row { padding: 18px 22px; } }
+    @media (max-width: 1000px) { .shell { grid-template-columns: 1fr; } aside { display: none; } }
+    @media (max-width: 700px) { main { padding: 28px 20px 120px; } .grid { grid-template-columns: 1fr; } header { padding: 0 20px; } .page-heading > .badge { display: none; } }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside aria-label="Workspace navigation">
+    <div class="brand"><span class="mark" aria-hidden="true">f</span> forma</div>
+    <div class="workspace">Studio workspace<small>A little space for good work.</small></div>
+    <div><div class="nav-label">Workspace</div><nav><span>Overview</span><a href="#settings" aria-current="page">Projects <span aria-hidden="true">↗</span></a><span>Team members</span><span>Activity</span></nav></div>
+    <div class="sidebar-note"><b>Made for the next idea.</b>A local demo workspace.<br>No real accounts or data.</div>
+  </aside>
+  <div class="main">
+    <header><div class="crumb">Workspace &nbsp; / &nbsp; Projects &nbsp; / &nbsp; <b>Settings</b></div><div class="account">Demo workspace <span class="avatar">JD</span></div></header>
+    <main id="settings">
+      <div class="page-heading"><div><div class="eyebrow">Make room for what’s next</div><h1>Project settings</h1><p class="subtitle">A clear name. The right people. Ready to share.</p></div><span class="badge">● &nbsp; Draft project</span></div>
+      <div class="grid">
+        <div>
+          <form class="card" id="project-form">
+            <div class="card-heading"><h2>The essentials</h2><p class="hint">Give your project a home your team can recognize.</p></div>
+            <fieldset id="fields"><legend style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">Project details</legend>
+              <label for="name">Project name</label><input id="name" name="name" value="Untitled project" required maxlength="80" autocomplete="off" aria-describedby="name-help">
+              <p class="field-help" id="name-help">Keep it short, memorable, and unmistakably yours.</p>
+              <p class="field-label" id="access-label">Who can see this project?</p>
+              <div class="access">
+                <button id="options" type="button" aria-expanded="false" aria-controls="menu" aria-labelledby="access-label visibility"><span class="access-icon" aria-hidden="true">◇</span><span class="access-text"><strong id="visibility">Private</strong><span id="access-description">Only you have access</span></span><span aria-hidden="true">⌄</span></button>
+                <div id="menu" hidden role="group" aria-label="Project access"><button id="private" type="button" aria-pressed="true">Private<small>A space just for you</small></button><button id="team" type="button" aria-pressed="false">Team access<small>Bring everyone in your workspace along</small></button></div>
+              </div>
+            </fieldset>
+            <div class="save-row"><span id="change-status">All changes up to date</span><button id="save" type="submit">Save project &nbsp; ↗</button></div>
+          </form>
+          <p id="result" role="status" aria-live="polite">No changes saved yet.</p>
+        </div>
+        <div>
+          <section class="card preview" aria-label="Live project preview"><div class="cover"><span class="cover-label">Your next great project</span></div><div class="preview-body"><div class="eyebrow" style="margin-bottom:10px">Live preview</div><h2 id="preview-name">Untitled project</h2><p class="preview-description">A shared place to turn a promising idea into something worth showing.</p><div class="preview-footer"><div class="members" aria-label="Demo team"><span class="avatar">JD</span><span class="avatar">AK</span></div><span class="badge" id="preview-access">◇ &nbsp; Private</span></div></div></section>
+          <div class="note"><span class="note-icon" aria-hidden="true">✳</span><div><b>Good work starts with clarity.</b><p>Your project name and access settings help the right people find the right work.</p></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script>
+  const $ = id => document.getElementById(id);
+  const menu = $('menu');
+  function setMenu(open) { menu.hidden = !open; $('options').setAttribute('aria-expanded', String(open)); }
+  function dirty() { $('change-status').textContent = 'Unsaved changes'; $('result').dataset.saved = 'false'; }
+  $('name').addEventListener('input', () => { $('preview-name').textContent = $('name').value || 'Untitled project'; dirty(); });
+  $('options').addEventListener('click', () => setMenu(menu.hidden));
+  function choose(access) {
+    $('visibility').textContent = access;
+    $('access-description').textContent = access === 'Team' ? 'Everyone in your workspace' : 'Only you have access';
+    $('preview-access').textContent = access === 'Team' ? '↗  Team access' : '◇  Private';
+    $('team').setAttribute('aria-pressed', String(access === 'Team'));
+    $('private').setAttribute('aria-pressed', String(access === 'Private'));
+    setMenu(false); dirty(); $('options').focus();
+  }
+  $('team').addEventListener('click', () => choose('Team'));
+  $('private').addEventListener('click', () => choose('Private'));
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { setMenu(false); $('options').focus(); } });
+  document.addEventListener('click', event => { if (!event.target.closest('.access')) setMenu(false); });
+  $('project-form').addEventListener('submit', event => {
+    event.preventDefault(); setMenu(false);
+    const name = $('name').value, visibility = $('visibility').textContent;
+    $('fields').disabled = true; $('save').disabled = true;
+    $('save').textContent = 'Saving…'; $('result').textContent = 'Saving…';
+    setTimeout(() => {
+      $('result').textContent = 'Saved ' + name + ' — ' + visibility;
+      $('result').dataset.saved = 'true'; $('change-status').textContent = 'All changes saved';
+      $('fields').disabled = false; $('save').disabled = false; $('save').textContent = 'Save project  ↗';
+    }, 1000);
+  });
+</script>
+</body>
+</html>

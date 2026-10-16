@@ -184,6 +184,31 @@ The tool does not upload anything, redact recordings, or package artifacts
 for sharing. EDN cannot execute code through the reader, but a configured
 Kokoro command **is executable configuration**: use trusted project files.
 
+## Publishing a demo on GitHub
+
+For playback inside a README, upload an **attachment**, not a release asset.
+GitHub release download URLs produce downloads; ordinary HTML video tags
+are sanitized. The attachment URL must stand alone in its own paragraph.
+
+After obtaining permission to publish the reviewed demo, the current GitHub
+CLI supports:
+
+```sh
+gh issue create --title "README demo attachment" \
+  --body "Reviewed demo video for the README." --attach work/render-v1/demo.mp4
+gh issue view ISSUE_NUMBER --json body --jq .body
+```
+
+Copy the generated `https://github.com/user-attachments/assets/...` URL into
+the README as a bare URL, not a Markdown image or download link. Close the
+hosting issue when done; keep the attachment. Check the rendered README for
+a video player and mention that viewers must enable sound. Do not copy the
+temporary signed media URL from the rendered HTML.
+
+This publishes both an issue and its attachment; never upload private raw
+recordings. Check `gh issue create --help` for `--attach` support before use.
+See [GitHub's attachment instructions](https://docs.github.com/en/github-cli/github-cli/attaching-files-with-github-cli).
+
 ## Functional architecture
 
 | Namespace | Responsibility |

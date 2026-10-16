@@ -1,10 +1,10 @@
-# 🤧 If you’re allergic to vibe-coded apps, turn away immediately.
+# 🤧🦠 If you’re allergic to vibe-coded apps, turn away immediately.
 
 **Agent Demo lets coding agents turn finished browser features into narrated demo videos that help reviewers understand what changed.**
 
-[![Watch the Agent Demo walkthrough](docs/demo.png)](https://github.com/juniusfree/agent-demo/releases/download/demo-v1/agent-demo.mp4)
+https://github.com/user-attachments/assets/dc9ae685-becc-416a-9bf0-0396f307c5b4
 
-[▶ Watch the demo (17 seconds, MP4)](https://github.com/juniusfree/agent-demo/releases/download/demo-v1/agent-demo.mp4)
+*17-second demo. Turn on sound for narration.*
 
 ## Give this to your agent
 
