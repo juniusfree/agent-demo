@@ -150,6 +150,34 @@ not recorded actions. Keep storage state outside Git.
 - Captions do not zoom. Rendering retains full-chroma, 4x supersampling to
   avoid camera rounding jitter. This costs more processing time.
 
+## Motion blur
+
+Opt in at the **project/edit top level** (version 1 or 2):
+
+```clojure
+:motion-blur {:exposure 0.008333333333333333 :samples 8}
+```
+
+- Omit the map, or use `:exposure 0`, to retain the original sharp renderer.
+- `:exposure` is seconds, from 0 through 1/30. Default: 1/120 second for subtle softening.
+- `:samples` is an integer from 2 through 16. Default: 8. Higher values reduce
+  separated trails during fast movement but increase render time and temporary
+  storage. This reference renderer is substantially slower than the sharp path.
+- Applies to cursor and camera motion, not captions. Source footage, narration,
+  timing, and capture data remain unchanged. No recapture is needed.
+- Each output frame retains one source-video frame while the renderer samples
+  cursor/camera states over its exposure. It averages those composed samples in
+  16-bit linear light. It does not interpolate or blur animations inside the
+  captured browser video itself.
+- Exposure resets at scene-instance boundaries, cuts, instantaneous camera
+  changes, and cursor setting changes. Settled holds remain sharp; moving
+  cameras can still blur during a hold. Unmarked jumps in recorded pointer
+  coordinates are treated as motion, not automatically classified as teleports.
+- This is independent temporal supersampling, not a copy or exact reproduction
+  of Screen Studio's analytic GPU renderer. Rasterization/alpha compositing
+  precede linear-light averaging; edge color can differ from a fully
+  linear-light, premultiplied-alpha compositor.
+
 ## Editable cursor
 
 New captures contain **clean video plus a cursor event track** in `capture.edn`.

@@ -76,16 +76,18 @@
        (str "if(lt(" time "," (decimal start) ")," previous "," value ")")))
    (decimal (key full-view)) track))
 
-(defn filter-expression [{:keys [camera start duration]} width height]
+(defn filter-expression
+  ([segment width height] (filter-expression segment width height {}))
+  ([{:keys [camera start duration]} width height {:keys [fps time-expression] :or {fps 30}}]
   (let [start (or start 0)
         track (take-while #(< (:start %) (+ start duration)) camera)]
     (if (or (empty? track) (every? #(and (= 1.0 (double (get-in % [:from :zoom])))
                                          (= 1.0 (double (get-in % [:to :zoom])))) track))
       "null"
-      (let [time (str "(on/30+" (decimal start) ")")
+      (let [time (or time-expression (str "(on/" fps "+" (decimal start) ")"))
             z (expression track time :zoom)
             x (expression track time :x) y (expression track time :y)]
         ;; Full chroma and 4x working pixels prevent integer crop jitter.
         (str "format=yuv444p,scale=" (* 4 width) ":" (* 4 height) ":flags=bicubic,"
              "zoompan=z='" z "':x='max(0,min(iw-iw/zoom,iw*(" x ")-iw/zoom/2))'"
-             ":y='max(0,min(ih-ih/zoom,ih*(" y ")-ih/zoom/2))':d=1:s=" width "x" height ":fps=30")))))
+             ":y='max(0,min(ih-ih/zoom,ih*(" y ")-ih/zoom/2))':d=1:s=" width "x" height ":fps=" fps))))))

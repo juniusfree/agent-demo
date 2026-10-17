@@ -1,6 +1,6 @@
 (ns agent-demo.render
   (:require [agent-demo.core :as core] [agent-demo.camera :as camera] [agent-demo.io :as dio] [agent-demo.speech :as speech]
-            [agent-demo.privacy :as privacy] [agent-demo.cursor-render :as cursor-render] [clojure.java.io :as io] [clojure.string :as str])
+            [agent-demo.motion-blur :as blur] [agent-demo.privacy :as privacy] [agent-demo.cursor-render :as cursor-render] [clojure.java.io :as io] [clojure.string :as str])
   (:import [java.awt Color Font RenderingHints] [java.awt.image BufferedImage] [javax.imageio ImageIO]))
 
 (defn caption! [text path width height]
@@ -35,7 +35,8 @@
   ;; FFmpeg concat syntax, not shell syntax.
   (spit path (str/join "\n" (map #(str "file '" (str/replace (.getCanonicalPath (io/file %)) "'" "'\\''") "'") files))))
 (defn render-segment! [source segment out width height]
-  (let [id (:id segment) audio (str out "/" id "-audio.wav")
+  (let [sampling (blur/settings segment)
+        id (:id segment) audio (str out "/" id "-audio.wav")
         listing (str out "/" id "-audio.txt")
         video (str out "/" id "-scene.mp4")
         captions (mapv (fn [i cue]
@@ -49,11 +50,15 @@
         base (str "[0:v]crop=" width ":" height ":0:0,setpts=PTS-STARTPTS,fps=30,"
                   (core/cut-filter (:cuts segment))
                   ",tpad=stop_mode=clone:stop_duration=" (:hold segment)
-                  ",trim=duration=" (:duration segment) ",setpts=PTS-STARTPTS[footage]")
+                  ",trim=duration=" (:duration segment) ",setpts=PTS-STARTPTS"
+                  (when sampling (str "," (blur/repeat-filter segment width height))) "[footage]")
         presentation (str (if cursor-layer
                             (str "[footage][" (+ 2 (count images)) ":v]overlay=0:0:format=auto:shortest=1,")
                             "[footage]")
-                          (camera/filter-expression segment width height) "[v0]")
+                          (camera/filter-expression segment width height
+                                                    (if sampling {:fps (* 30 (:samples sampling))
+                                                                  :time-expression (blur/time-expression segment)} {}))
+                          (when sampling (str "," (blur/resolve-filter segment))) "[v0]")
         overlays (map-indexed
                   (fn [i cue]
                     (format "[v%d][%d:v]overlay=0:0:enable='gte(t,%.6f)*lt(t,%.6f)'[v%d]"

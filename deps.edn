@@ -8,5 +8,6 @@
            :smoke {:extra-paths ["test"] :main-opts ["-m" "agent-demo.smoke"]}
            :test-edit {:extra-paths ["test"] :main-opts ["-m" "agent-demo.edit-regression"]}
            :test-cursor {:extra-paths ["test"] :main-opts ["-m" "agent-demo.cursor-regression"]}
+           :test-blur {:extra-paths ["test"] :main-opts ["-m" "agent-demo.motion-blur-regression"]}
            :test-cuts {:extra-paths ["test"] :main-opts ["-m" "agent-demo.cut-regression"]}
            :test-zoom {:extra-paths ["test"] :main-opts ["-m" "agent-demo.zoom-regression"]}}}

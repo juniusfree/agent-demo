@@ -1,5 +1,34 @@
 # Implementation verification
 
+## Opt-in exposure motion blur
+
+- After visual review, reduced the enabled default to 1/120 second for both
+  cursor and camera. The stronger 1/60-second setting remains configurable.
+  `work/motion-blur-subtle/comparison.mp4` compares the two; decoding and the
+  38-test/356-assertion unit suite pass after the change. Blur stays opt-in.
+- Baseline implementation committed as `f560bed`; research committed as
+  `60aafaa`. Before rendering finished before blur implementation began.
+- Unit suite: 38 tests, 356 assertions pass. `clojure -M:test-blur
+  work/blur-regression-v2` passes rendered cursor trails, camera blur, cut
+  boundaries, settled holds, byte-identical zero-exposure output, unchanged
+  source hash, and media checks. Sampling and exposure boundaries live in the
+  separate pure `motion-blur` module.
+- Matched 1920×1200 before/after exports:
+  `work/motion-blur-comparison/{before,after}/demo.mp4`.
+  Both have 16.866667s H.264 video and 16.879583s AAC audio. Their copied audio
+  stream hashes match: `80944206752de27868a9e2e5753cbff4ff0b0076d8701e7336b2c116bab56773`.
+  Same footage, edit, camera, cursor settings, and cached narration; after adds
+  1/60-second exposure with 8 samples. This does not test live Kokoro.
+- Labeled side-by-side: `work/motion-blur-comparison/comparison.mp4`.
+  All three videos decode cleanly. Moving and held frame inspection confirms
+  motion softening, settled sharpness, and sharp captions. Full playback and
+  subjective smoothness remain user review.
+- Implementation uses independent temporal supersampling with 16-bit
+  linear-light averaging after sample composition, not Screen Studio code.
+  It costs additional processing/storage and does not implement their analytic
+  edge coverage or fully linear-light alpha compositor. Captured in-page
+  animations and unmarked pointer teleports are not separately reconstructed.
+
 ## Editable cursor layer
 
 - Unit suite: 34 tests, 330 assertions pass. Browser fixture/auth/timeout suite:

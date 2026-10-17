@@ -346,6 +346,7 @@ See [GitHub's attachment instructions](https://docs.github.com/en/github-cli/git
 | `camera` | Pure camera validation, anchor remapping, persistent state, FFmpeg expressions |
 | `cursor` | Pure cursor validation, clock mapping, source sampling, persistent edit settings |
 | `cursor-render` | AWT cursor rasterization and streaming lossless alpha-video encoding |
+| `motion-blur` | Independent exposure validation, sampling clock, discontinuity boundaries, and linear-light resolve filters |
 | `auth` | Manual login, fresh-context verification, and private state export |
 | `capture` | Playwright browser adapter and encoded boundary extraction |
 | `speech` | Local HTTP and owned-process lifecycle |
@@ -368,8 +369,16 @@ clojure -M:test-zoom
 clojure -M:test-cuts work/cut-check-v1
 clojure -M:test-edit work/edit-check-v1
 clojure -M:test-cursor work/cursor-check-v1
+clojure -M:test-blur work/blur-check-v1
 clojure -M:smoke work/acceptance-v1
 ```
+
+The blur regression requires FFmpeg, not Chrome or Kokoro. It checks rendered
+cursor trails, camera motion, settled holds, cuts, zero-exposure identity, and
+unchanged source footage. Optional top-level `:motion-blur` settings are described
+in [Project format](project-format.md#motion-blur). Keep the sharp edit as a
+baseline and reuse the same footage/audio when comparing; blur costs additional
+render time and temporary storage.
 
 The cursor regression requires Chrome and FFmpeg, not Kokoro. It captures a
 button that initially blocks clicks, checks clean pixels and click/video-clock

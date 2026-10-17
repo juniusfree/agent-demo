@@ -69,12 +69,14 @@
 
 (defn source-time
   "Inverse cuts on the 30fps grid; checkpoint holds sample the final source frame."
-  [segment time]
-  (let [frame (/ (Math/floor (+ (* 30 (min time (:footage-duration segment))) 1.0e-7)) 30.0)
+  ([segment time] (source-time segment time false))
+  ([segment time continuous?]
+  (let [frame (if continuous? (min time (:footage-duration segment))
+                 (/ (Math/floor (+ (* 30 (min time (:footage-duration segment))) 1.0e-7)) 30.0))
         local (reduce (fn [t {:keys [start end]}] (if (>= (+ t 1.0e-8) start) (+ t (- end start)) t))
                       frame (:cuts segment))
         last-frame (/ (max 0 (dec (long (Math/ceil (- (* 30 (:source-duration segment)) 1.0e-7))))) 30.0)]
-    (+ (:source-start segment) (min local last-frame))))
+    (+ (:source-start segment) (min local last-frame)))))
 
 (defn position-at [events time smoothing]
   (let [points (filter #(= :pointer (:type %)) events)
@@ -89,10 +91,11 @@
 
 (defn frame-state
   "Sample source motion, but age retained click pulses in edited time (also during holds)."
-  [segment time]
+  ([segment time] (frame-state segment time false))
+  ([segment time continuous?]
   (let [{:keys [events track]} (:cursor segment)
         settings (settings-at track (+ (:start segment) time))
-        source (source-time segment time)
+        source (source-time segment time continuous?)
         clicks (for [event events
                      :when (and (= :click (:type event))
                                 (<= (:source-start segment) (:at event))
@@ -104,4 +107,4 @@
                      :when (<= 0 age 0.5)]
                  (assoc (select-keys event [:x :y]) :age age))]
     {:settings settings :position (position-at events source (:smoothing settings))
-     :clicks (if (and (:visible? settings) (:clicks? settings)) (vec clicks) [])}))
+     :clicks (if (and (:visible? settings) (:clicks? settings)) (vec clicks) [])})))

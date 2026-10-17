@@ -1,5 +1,5 @@
 (ns agent-demo.core
-  (:require [clojure.string :as str] [agent-demo.camera :as camera] [agent-demo.cursor :as cursor] [agent-demo.privacy :as privacy])
+  (:require [clojure.string :as str] [agent-demo.camera :as camera] [agent-demo.cursor :as cursor] [agent-demo.motion-blur :as motion-blur] [agent-demo.privacy :as privacy])
   (:import [java.net URI] [java.text BreakIterator] [java.util Locale]))
 
 (defn require! [condition message data]
@@ -59,7 +59,7 @@
                   "Action requires :selector" {}))
       (when (#{:fill :wait-text} (:op a))
         (require! (string? (:text a)) "Action requires :text" {}))))
-  (cursor/validate (camera/validate p)))
+  (motion-blur/validate (cursor/validate (camera/validate p))))
 
 (defn edit-view
   "Flatten scene-local camera instructions for the existing camera compiler."
@@ -207,7 +207,8 @@
 (defn plan [project capture speech]
   (validate-edit project)
   (validate-capture project capture)
-  (cursor/attach-track project capture
+  (mapv #(cond-> % (:motion-blur project) (assoc :motion-blur (:motion-blur project)))
+   (cursor/attach-track project capture
    (camera/attach-track (edit-view project)
    (:segments
    (reduce
@@ -237,4 +238,4 @@
                                            (conj out (assoc c :start t :end (+ t (:duration c)))))
                                     out))})}))
     {:time 0 :segments []}
-    (map vector (:scenes project) (recorded-scenes project capture)))))))
+    (map vector (:scenes project) (recorded-scenes project capture))))))))

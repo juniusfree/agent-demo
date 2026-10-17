@@ -1,6 +1,6 @@
 (ns agent-demo.cursor-render
   "Rasterization/encoder boundary for the pure cursor timeline."
-  (:require [agent-demo.cursor :as cursor] [agent-demo.privacy :as privacy])
+  (:require [agent-demo.cursor :as cursor] [agent-demo.motion-blur :as blur] [agent-demo.privacy :as privacy])
   (:import [java.awt AlphaComposite BasicStroke Color RenderingHints]
            [java.awt.geom Path2D$Double Ellipse2D$Double]
            [java.awt.image BufferedImage DataBufferByte]
@@ -39,10 +39,12 @@
 (defn layer!
   "Stream reusable ABGR frames into a lossless alpha movie; no PNG frame pile."
   [segment path width height]
-  (let [image (BufferedImage. width height BufferedImage/TYPE_4BYTE_ABGR)
+  (let [sampling (blur/settings segment)
+        samples (get sampling :samples 1)
+        image (BufferedImage. width height BufferedImage/TYPE_4BYTE_ABGR)
         bytes (.getData ^DataBufferByte (.getDataBuffer (.getRaster image)))
         args ["ffmpeg" "-v" "error" "-y" "-f" "rawvideo" "-pixel_format" "abgr"
-              "-video_size" (str width "x" height) "-framerate" "30" "-i" "pipe:0"
+              "-video_size" (str width "x" height) "-framerate" (str (* 30 samples)) "-i" "pipe:0"
               "-an" "-c:v" "qtrle" "-pix_fmt" "argb" "-threads" "1" path]
         process (.start (doto (ProcessBuilder. ^java.util.List args)
                           (.redirectError ProcessBuilder$Redirect/DISCARD)
@@ -50,8 +52,11 @@
     (try
       (with-open [stream (BufferedOutputStream. (.getOutputStream process) 1048576)]
         (dotimes [frame (long (Math/ceil (* 30 (:duration segment))))]
-          (paint! image (cursor/frame-state segment (/ frame 30.0)))
-          (.write stream bytes)))
+          (dotimes [sample samples]
+            (paint! image (cursor/frame-state segment
+                                             (if sampling (blur/sample-time segment frame sample) (/ frame 30.0))
+                                             (boolean sampling)))
+            (.write stream bytes))))
       (when-not (zero? (.waitFor process))
         (throw (privacy/error "Cursor layer encoding failed; check local FFmpeg" {})))
       path
